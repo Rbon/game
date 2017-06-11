@@ -5,15 +5,19 @@ class Actor
   def initialize(opts = {})
     @name = opts[:name] || "[NAME NOT SET]"
     @room = opts[:room]
-    @room[@name] = self
+    @room.push(self)
     @hp = 10
     @right_hand = Sword.new
+  end
+
+  def targets
+    output = Array[*@room]
+    output.delete(self)
+    output
   end
 end
 
 class Player < Actor
-  attr_reader :room
-
   def attack(target)
     prev_hp = target.hp
     @right_hand.attack(target)
@@ -42,9 +46,9 @@ end
 
 class Main
   def initialize
-    @room = {}
+    @room = []
     @player = Player.new(room: @room)
-    @enemy = Enemy.new(room: @room, name: "enemy")
+    @enemy = Enemy.new(room: @room, name: "enemy crab")
     @user = User.new(player: @player)
   end
 
@@ -59,7 +63,6 @@ end
 class User
   def initialize(opts)
     @player = opts[:player]
-    @system = opts[:system]
     @commands = {
       attack: :attack,
       quit: :halt
@@ -68,26 +71,42 @@ class User
 
   def parse
     print " > "
-    command, target = gets.chomp.split
+    command, target = gets.chomp.split(" ", 2)
     run_command(command.to_sym, target)
   end
 
   def run_command(command, target)
-    self.send((@commands[command] || :bad_command), target)
+    if @commands[command]
+      send(@commands[command], target)
+    else
+      bad_command(command)
+    end
   end
 
-  def bad_command(target)
-    puts "Unknown command."
+  def bad_command(command)
+    puts "Unknown command: #{command}"
     parse
   end
 
-  def attack(target)
-    if @player.room[target] == nil
-      puts "Unknown target: #{target}"
-      parse
-    else
-      @player.attack(@player.room[target])
+  def search(list, target)
+    output = false
+    list.each do |entity|
+      if entity.name == target
+        output = entity
+        break
+      end
     end
+    output
+  end
+
+  def attack(target)
+    entity = search(@player.targets, target)
+    entity ? @player.attack(entity) : bad_target(target)
+  end
+
+  def bad_target(target)
+    puts "Unknown target: #{target}"
+    parse
   end
 
   def halt(target)
