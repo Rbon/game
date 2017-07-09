@@ -5,6 +5,7 @@ class Entity
     @name = opts[:name] || "[NAME NOT SET]"
     @look_file = opts[:look_file] || "default"
     @room.entity_list.push(self)
+    @container = nil
   end
 
   def look_text
@@ -24,11 +25,15 @@ class Actor < Entity
     @level = 0
     @race = "RACE NOT SET"
     @hp = 10
-    @right_hand = Container.new(name: "right hand", status: "open")
+    @right_hand = RightHand.new
   end
 
   def grab(target)
     target.grabbed(self)
+  end
+
+  def drop(target)
+    target.dropped
   end
 
   def look_text
@@ -71,15 +76,23 @@ class Sword < Entity
   end
 
   def grabbed(grabber)
+    @container = grabber.right_hand
     @room.entity_list.delete(self)
-    grabber.right_hand.entity_list.push(self)
+    @container.entity_list.push(self)
     puts "You grab the sword."
+  end
+
+  def dropped
+    @container.entity_list.delete(self)
+    @container = nil
+    @room.entity_list.push(self)
+    puts @room.dropped_item_text(self)
   end
 end
 
 class Main
   def initialize
-    @room = Room.new(look_file: "TestRoom.txt")
+    @room = TestRoom.new(look_file: "TestRoom.txt")
     @player = Player.new(room: @room)
     @enemy = Enemy.new(room: @room, name: "enemy crab")
     @user = User.new(player: @player)
@@ -100,6 +113,7 @@ class User
     @player = opts[:player]
     @commands = {
       attack: :attack,
+      drop: Drop.new(player: @player),
       grab: Grab.new(player: @player),
       look: Look.new(player: @player),
       quit: Halt.new(player: @player)
@@ -117,22 +131,9 @@ class User
     @commands[command_name] || BadCommand.new(command_name)
   end
 
-  def find_target(target_name)
-    @player.room.entity_list.each do |entity|
-      if entity.name == target_name
-        return entity
-      end
-    end
-    :bad_target
-  end
-
   def attack(target)
     entity = search(@player.targets, target)
     entity ? @player.attack(entity) : bad_target(target)
-  end
-
-  def grab(entity_name)
-    @player.grab(entity_name)
   end
 end
 
@@ -165,7 +166,12 @@ end
 
 class Look < Command
   def range
-    [@player, @player.right_hand, *@player.room.entity_list]
+    [
+      @player,
+      @player.right_hand,
+      *@player.right_hand.entity_list,
+      *@player.room.entity_list
+    ]
   end
 
   def run(target_name)
@@ -198,7 +204,24 @@ class Grab < Command
       target = find_target(target_name)
     end
     if target
-      target.grabbed(@player)
+      @player.grab(target)
+    else
+      bad_target(target_name)
+    end
+  end
+end
+
+class Drop < Command
+  def range
+    @player.right_hand.entity_list
+  end
+
+  def run(target_name)
+    if target_name
+      target = find_target(target_name)
+    end
+    if target
+      @player.drop(target)
     else
       bad_target(target_name)
     end
@@ -208,7 +231,7 @@ end
 class Container
   attr_reader :name
   attr_accessor :entity_list
-  def initialize(opts)
+  def initialize(opts = {})
     @name = opts[:name]
     @entity_list = []
     @status = opts[:status] || "closed"
@@ -232,6 +255,17 @@ class Container
   end
 end
 
+class RightHand < Container
+  def initialize
+    super(name: "right hand")
+  end
+
+  def look_text
+    return "There is nothing in your right hand." if @entity_list.empty?
+    "In your right hand, you are holding a #{@entity_list[0].name}"
+  end
+end
+
 class Room
   attr_accessor :entity_list
 
@@ -246,6 +280,12 @@ class Room
       output += "\nThere is a #{entity.name} here."
     end
     output
+  end
+end
+
+class TestRoom < Room
+  def dropped_item_text(item)
+    "The #{item.name} makes no sound as it falls on the eerie white plane that is the floor here."
   end
 end
 
