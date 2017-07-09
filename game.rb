@@ -1,9 +1,14 @@
 class Entity
-  attr_reader :name, :room
-  def initialize(opts)
-    @room = opts[:room] || TestRoom.new
+  attr_reader :room, :name
+  def initialize(opts = {})
+    @room = opts[:room] || Room.new(look_text: "TestRoom.txt")
     @name = opts[:name] || "[NAME NOT SET]"
+    @look_file = opts[:look_file] || "default"
     @room.entity_list.push(self)
+  end
+
+  def look_text
+    File.read("look_text/" + @name)
   end
 
   def grabbed(junk)
@@ -19,13 +24,7 @@ class Actor < Entity
     @level = 0
     @race = "RACE NOT SET"
     @hp = 10
-    @right_hand = nil
-  end
-
-  def targets
-    output = Array[*@room]
-    output.delete(self)
-    output
+    @right_hand = Container.new(name: "right hand", status: "open")
   end
 
   def grab(target)
@@ -33,8 +32,7 @@ class Actor < Entity
   end
 
   def look_text
-    "You are a level #{@level} #{@race}.
-    test."
+    "You are a level #{@level} #{@race}.\n" + @right_hand.look_text
   end
 end
 
@@ -43,6 +41,7 @@ class Player < Actor
     super(opts)
     @level = 1
     @race = "human"
+    @name = "self"
   end
 
   def attack(target)
@@ -72,14 +71,15 @@ class Sword < Entity
   end
 
   def grabbed(grabber)
-    grabber.right_hand = self
+    @room.entity_list.delete(self)
+    grabber.right_hand.entity_list.push(self)
     puts "You grab the sword."
   end
 end
 
 class Main
   def initialize
-    @room = TestRoom.new
+    @room = Room.new(look_file: "TestRoom.txt")
     @player = Player.new(room: @room)
     @enemy = Enemy.new(room: @room, name: "enemy crab")
     @user = User.new(player: @player)
@@ -100,9 +100,9 @@ class User
     @player = opts[:player]
     @commands = {
       attack: :attack,
-      grab: :grab,
-      look: :look,
-      quit: :halt
+      grab: Grab.new(player: @player),
+      look: Look.new(player: @player),
+      quit: Halt.new(player: @player)
     }
   end
 
@@ -110,22 +110,11 @@ class User
     print " > "
     command_name, target_name = gets.chomp.split(" ", 2)
     command = find_command(command_name.to_sym)
-    if target_name != nil
-      target = find_target(target_name)
-    else
-      target = nil
-    end
-    if command == :bad_command
-      bad_command(command_name)
-    elsif target == :bad_target
-      bad_target(target_name)
-    else
-      send(command, target)
-    end
+    command.run(target_name)
   end
 
   def find_command(command_name)
-    @commands[command_name] || :bad_command
+    @commands[command_name] || BadCommand.new(command_name)
   end
 
   def find_target(target_name)
@@ -137,28 +126,9 @@ class User
     :bad_target
   end
 
-  def bad_command(command)
-    puts "Unknown command: #{command}"
-    parse
-  end
-
   def attack(target)
     entity = search(@player.targets, target)
     entity ? @player.attack(entity) : bad_target(target)
-  end
-
-  def bad_target(target)
-    puts "Unknown target: #{target}"
-    parse
-  end
-
-  def halt(target)
-    exit
-  end
-
-  def look(target)
-    target ||= @player.room
-    puts target.look_text
   end
 
   def grab(entity_name)
@@ -166,12 +136,116 @@ class User
   end
 end
 
-class TestRoom
-  attr_reader :look_text
+class Command
+  def initialize(opts)
+    @player = opts[:player]
+  end
+
+  def find_target(target_name)
+    range.each do |entity|
+      return entity if entity.name == target_name
+    end
+    false
+  end
+
+  def bad_target(target_name)
+    puts "Unknown #{self.class} target: #{target_name}"
+  end
+end
+
+class BadCommand
+  def initialize(command_name)
+    @command_name = command_name
+  end
+
+  def run(junk)
+    puts "Unknown command: #{@command_name}"
+  end
+end
+
+class Look < Command
+  def range
+    [@player, @player.right_hand, *@player.room.entity_list]
+  end
+
+  def run(target_name)
+    if target_name
+      target = find_target(target_name)
+    else
+      target = @player.room
+    end
+    if target
+      puts target.look_text
+    else
+      bad_target(target_name)
+    end
+  end
+end
+
+class Halt < Command
+  def run(junk)
+    exit
+  end
+end
+
+class Grab < Command
+  def range
+    @player.room.entity_list
+  end
+
+  def run(target_name)
+    if target_name
+      target = find_target(target_name)
+    end
+    if target
+      target.grabbed(@player)
+    else
+      bad_target(target_name)
+    end
+  end
+end
+
+class Container
+  attr_reader :name
   attr_accessor :entity_list
-  def initialize
-    @look_text = File.read("TestRoom.txt")
+  def initialize(opts)
+    @name = opts[:name]
     @entity_list = []
+    @status = opts[:status] || "closed"
+  end
+
+  def look_text
+    send(@status + "_text")
+  end
+
+  def open_text
+    return "There is nothing in #{@name}." if @entity_list.empty?
+    output = "In the #{@name} there is:"
+    @entity_list.each do |entity|
+      output += "\na #{entity.name}"
+    end
+    output
+  end
+
+  def closed_text
+    "The #{@name} is closed, and you cannot see what is inside of it."
+  end
+end
+
+class Room
+  attr_accessor :entity_list
+
+  def initialize(opts)
+    @entity_list = []
+    @look_file = "look_text/" + opts[:look_file]
+  end
+
+  def look_text
+    output = File.read(@look_file)
+    @entity_list.each do |entity|
+      output += "\nThere is a #{entity.name} here."
+    end
+    output
   end
 end
 
