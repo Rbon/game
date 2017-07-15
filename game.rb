@@ -39,6 +39,11 @@ class Actor < Entity
   def look_text
     "You are a level #{@level} #{@race}.\n" + @right_hand.look_text
   end
+
+  def take_damage(amount)
+    puts "The #{@name} takes #{amount} damage. [#{@hp} -> #{@hp - amount}]"
+    @hp -= amount
+  end
 end
 
 class Player < Actor
@@ -50,9 +55,12 @@ class Player < Actor
   end
 
   def attack(target)
-    prev_hp = target.hp
-    @right_hand.attack(target)
-    puts "You attack the enemy for #{@right_hand.damage}. [#{prev_hp} -> #{target.hp}]"
+    if @right_hand.entity_list.empty?
+      @right_hand.attack(target)
+    else
+      puts "You attack the #{target.name}."
+      @right_hand.entity_list[0].attack(target)
+    end
   end
 end
 
@@ -68,11 +76,11 @@ class Sword < Entity
   def initialize(opts)
     super(opts)
     @name = "sword"
-    @damage = 1
+    @damage = 5
   end
 
   def attack(target)
-    target.hp -= @damage
+    target.take_damage(@damage)
   end
 
   def grabbed(grabber)
@@ -88,13 +96,17 @@ class Sword < Entity
     @room.entity_list.push(self)
     puts @room.dropped_item_text(self)
   end
+
+  def punch(target)
+    puts "You cannot punch wile you're holding a sword."
+  end
 end
 
 class Main
   def initialize
     @room = TestRoom.new(look_file: "TestRoom.txt")
     @player = Player.new(room: @room)
-    @enemy = Enemy.new(room: @room, name: "enemy crab")
+    @enemy = Enemy.new(room: @room, name: "crab")
     @user = User.new(player: @player)
     @sword = Sword.new(room: @room)
   end
@@ -112,10 +124,11 @@ class User
   def initialize(opts)
     @player = opts[:player]
     @commands = {
-      attack: :attack,
+      attack: Attack.new(player: @player),
       drop: Drop.new(player: @player),
       grab: Grab.new(player: @player),
       look: Look.new(player: @player),
+      punch: Punch.new(player: @player),
       quit: Halt.new(player: @player)
     }
   end
@@ -228,6 +241,38 @@ class Drop < Command
   end
 end
 
+class Attack < Command
+  def range
+    @player.room.entity_list
+  end
+
+  def run(target_name)
+    if target_name
+      target = find_target(target_name)
+    end
+    if target
+      @player.attack(target)
+    else
+      bad_target(target_name)
+    end
+  end
+end
+
+class Punch < Attack
+  def run(target_name)
+    if target_name
+      target = find_target(target_name)
+    end
+    if target
+      if @player.right_hand.entity_list.empty?
+        @player.right_hand.attack(target)
+      else
+        @player.right_hand.entity_list[0].punch(target)
+      end
+    end
+  end
+end
+
 class Container
   attr_reader :name
   attr_accessor :entity_list
@@ -263,6 +308,11 @@ class RightHand < Container
   def look_text
     return "There is nothing in your right hand." if @entity_list.empty?
     "In your right hand, you are holding a #{@entity_list[0].name}"
+  end
+
+  def attack(target)
+    puts "You punch the #{target.name}."
+    target.take_damage(1)
   end
 end
 
