@@ -12,6 +12,9 @@ class Command
   end
 
   def run(args)
+    if @default_target
+      args[:target_name] = @default_target unless target
+    end
     target = find_target(args)
     if target
       args[:actor].send(@action, target)
@@ -35,6 +38,7 @@ class Look < Command
   def initialize
     @action = :look
     @range = :everything
+    @default_target = "room"
   end
 end
 

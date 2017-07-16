@@ -170,9 +170,10 @@ class RightHand < Container
 end
 
 class Room
-  attr_accessor :entity_list
+  attr_accessor :entity_list, :name
 
   def initialize(opts)
+    @name = "room"
     @entity_list = []
     @look_file = "look_text/" + opts[:look_file]
   end

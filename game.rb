@@ -28,7 +28,8 @@ class User
       everything: [
           @player.room.entity_list,
           @player.right_hand,
-          @player.right_hand.entity_list
+          @player.right_hand.entity_list,
+          @player.room
       ]
     }
     @commands = {
