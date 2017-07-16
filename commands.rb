@@ -1,13 +1,23 @@
 class Command
-  def find_target(target_name)
-    @range.flatten.each do |entity|
-      return entity if entity.name == target_name
+  attr_reader :range
+  def find_target(args)
+    args[:target_list].flatten.each do |entity|
+      return entity if entity.name == args[:target_name]
     end
     false
   end
 
   def bad_target(target_name)
     puts "Unknown #{@action} target: #{target_name}"
+  end
+
+  def run(args)
+    target = find_target(args)
+    if target
+      args[:actor].send(@action, target)
+    else
+      bad_target(args[:target_name])
+    end
   end
 end
 
@@ -16,28 +26,15 @@ class BadCommand
     @command_name = command_name
   end
 
-  def run(junk, more_junk)
+  def run(args)
     puts "Unknown command: #{@command_name}"
   end
 end
 
 class Look < Command
-  def initialize(opts)
-    @range = opts[:range]
+  def initialize
     @action = :look
-  end
-
-  def run(actor, target_name)
-    if target_name
-      target = find_target(target_name)
-    else
-      target = actor.room
-    end
-    if target
-      puts target.look_text
-    else
-      bad_target(target_name)
-    end
+    @range = :everything
   end
 end
 
@@ -47,33 +44,31 @@ class Halt
   end
 end
 
-class PlayerAction < Command
-  def initialize(opts)
-    @range = opts[:range]
-    @target_name = opts[:target_name]
-    @actor = opts[:actor]
-    @action = opts[:action]
-  end
-
-  def run(actor, target_name)
-    if target_name
-      target = find_target(target_name)
-    end
-    if target
-      actor.send(@action, target)
-    else
-      bad_target(target_name)
-    end
+class Attack < Command
+  def initialize
+    @action = :attack
+    @range = :room
   end
 end
 
-class Test
-  def initialize(thing)
-    @thing = thing
+class Drop < Command
+  def initialize
+    @action = :drop
+    @range = :held
   end
+end
 
-  def run(junk, more_junk)
-    puts @thing
+class Grab < Command
+  def initialize
+    @action = :grab
+    @range = :room
+  end
+end
+
+class Punch < Command
+  def initialize
+    @action = :punch
+    @range = :room
   end
 end
 

@@ -22,40 +22,35 @@ end
 class User
   def initialize(opts)
     @player = opts[:player]
-    @commands = {
-      attack: PlayerAction.new(
-        action: :attack,
-        range: @player.room.entity_list
-      ),
-      drop: PlayerAction.new(
-        range: @player.right_hand.entity_list,
-        action: :drop
-      ),
-      grab: PlayerAction.new(
-        range: @player.room.entity_list,
-        action: :grab
-      ),
-      look: Look.new(
-        range: [
+    @range_list = {
+      room: @player.room.entity_list,
+      held: @player.right_hand.entity_list,
+      everything: [
           @player.room.entity_list,
           @player.right_hand,
           @player.right_hand.entity_list
-        ]
-      ),
-      punch: PlayerAction.new(
-        action: :punch,
-        range: @player.room.entity_list
-      ),
-      quit: Halt.new,
-      test: Test.new(@player.room.entity_list)
+      ]
+    }
+    @commands = {
+      attack: Attack,
+      drop: Drop,
+      grab: Grab,
+      look: Look,
+      punch: Punch,
+      quit: Halt
     }
   end
 
   def parse
     print " > "
     command_name, target_name = gets.chomp.split(" ", 2)
-    command = @commands[command_name.to_sym] || BadCommand.new(command_name)
-    command.run(@player, target_name)
+    command = @commands[command_name.to_sym].new || BadCommand.new(command_name)
+    target_list = @range_list[command.range]
+    command.run(
+      actor: @player,
+      target_list: target_list,
+      target_name: target_name
+    )
   end
 end
 

@@ -12,6 +12,10 @@ class Entity
     File.read("look_text/" + @name)
   end
 
+  def looked_at
+    puts "You stare longingly at the #{@name}."
+  end
+
   def grabbed(junk)
     puts "You cannot grab the #{@name}."
   end
@@ -36,9 +40,6 @@ class Actor < Entity
     target.dropped
   end
 
-  def look_text
-    "You are a level #{@level} #{@race}.\n" + @right_hand.look_text
-  end
 
   def punch(target)
     if @right_hand.entity_list.empty?
@@ -68,6 +69,10 @@ class Player < Actor
     else
       @right_hand.entity_list[0].attack(target)
     end
+  end
+
+  def look(target)
+    target.looked_at
   end
 
   def punch(target)
