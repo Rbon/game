@@ -44,7 +44,7 @@ class User
 
   def parse
     print " > "
-    command_name, target_name = gets.chomp.split(" ", 2)
+    command_name, target_name = gets.strip.chomp.split(" ", 2)
     command = @commands[command_name.to_sym].new || BadCommand.new(command_name)
     target_list = @range_list[command.range]
     command.run(

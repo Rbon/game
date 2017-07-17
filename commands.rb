@@ -13,7 +13,7 @@ class Command
 
   def run(args)
     if @default_target
-      args[:target_name] = @default_target unless target
+      args[:target_name] = @default_target unless args[:target_name]
     end
     target = find_target(args)
     if target

@@ -1,45 +1,84 @@
 class Entity
-  attr_reader :room, :name
+  attr_reader :room, :name, :volume
+  attr_accessor :hp
   def initialize(opts = {})
     @room = opts[:room] || Room.new(look_text: "TestRoom.txt")
     @name = opts[:name] || "[NAME NOT SET]"
     @look_file = opts[:look_file] || "default"
     @room.entity_list.push(self)
     @container = nil
+    @hp = 10
+    @volume = 1
+    @owner = nil
   end
 
-  def look_text
-    File.read("look_text/" + @name)
+  def attack(*args)
+    puts "You cannot attack with the #{@name}."
   end
 
-  def looked_at
+  def punch(*args)
+    puts "You cannot punch with the #{@name}."
+  end
+
+  def is_attacked(attacker)
+    puts "You attack the #{@name}."
+    is_damaged(attacker.attacking_with.damage)
+  end
+
+  def is_damaged(amount)
+    puts "The #{@name} takes #{amount} damage. [#{@hp} -> #{@hp - amount}]"
+    @hp -= amount
+  end
+
+  def is_dropped
+    @container.entity_list.delete(self)
+    @room.entity_list.push(self)
+    @container.free_space += @volume
+    @container = nil
+    puts @room.dropped_item_text(self)
+  end
+
+  def is_grabbed(grabber)
+    @container = grabber.grabbing_with
+    @owner = grabber
+    @room.entity_list.delete(self)
+    @container.entity_list.push(self)
+    @container.free_space -= @volume
+    puts "You grab the #{@name} in your right hand."
+  end
+
+  def is_looked_at
     puts "You stare longingly at the #{@name}."
   end
 
-  def grabbed(junk)
-    puts "You cannot grab the #{@name}."
+  def is_punched(puncher)
+    puts "You punch the #{@name}."
+    is_damaged(puncher.attacking_with.damage)
+  end
+
+  def is_thrown(target)
   end
 end
 
 class Actor < Entity
-  attr_accessor :hp, :right_hand, :level, :race
+  attr_accessor :right_hand, :level, :race, :attacking_with, :grabbing_with
 
   def initialize(opts = {})
     super(opts)
     @level = 0
     @race = "RACE NOT SET"
     @hp = 10
-    @right_hand = RightHand.new
+    @right_hand = RightHand.new(self)
+    @attacking_with = nil
   end
 
   def grab(target)
-    target.grabbed(self)
+    @right_hand.grab(target)
   end
 
   def drop(target)
-    target.dropped
+    target.is_dropped
   end
-
 
   def punch(target)
     if @right_hand.entity_list.empty?
@@ -47,11 +86,6 @@ class Actor < Entity
     else
       @right_hand.entity_list[0].punch
     end
-  end
-
-  def take_damage(amount)
-    puts "The #{@name} takes #{amount} damage. [#{@hp} -> #{@hp - amount}]"
-    @hp -= amount
   end
 end
 
@@ -64,15 +98,11 @@ class Player < Actor
   end
 
   def attack(target)
-    if @right_hand.entity_list.empty?
-      @right_hand.attack(target)
-    else
-      @right_hand.entity_list[0].attack(target)
-    end
+    @right_hand.attack(target)
   end
 
   def look(target)
-    target.looked_at
+    target.is_looked_at
   end
 
   def punch(target)
@@ -81,6 +111,19 @@ class Player < Actor
     else
       @right_hand.entity_list[0].punch(target)
     end
+  end
+
+  def is_punched
+    puts "You punch yourself."
+  end
+
+  def is_damaged(amount)
+    puts "You take #{amount} damage. [#{@hp} -> #{@hp - amount}]"
+    @hp -= amount
+  end
+
+  def is_looked_at
+    puts "You are very good looking."
   end
 end
 
@@ -92,43 +135,39 @@ class Enemy < Actor
   end
 end
 
-class Sword < Entity
+class Weapon < Entity
+  def initialize(opts)
+    super(opts)
+    @damage = 1
+  end
+  def attack(target)
+    target.is_attacked(@owner)
+  end
+end
+
+class Sword < Weapon
   def initialize(opts)
     super(opts)
     @name = "sword"
     @damage = 5
   end
 
-  def attack(target)
-    target.take_damage(@damage)
-  end
-
-  def grabbed(grabber)
-    @container = grabber.right_hand
-    @room.entity_list.delete(self)
-    @container.entity_list.push(self)
-    puts "You grab the sword."
-  end
-
-  def dropped
-    @container.entity_list.delete(self)
-    @container = nil
-    @room.entity_list.push(self)
-    puts @room.dropped_item_text(self)
-  end
-
-  def punch(target)
-    puts "You cannot punch while you're holding a sword."
+  def is_punched(puncher)
+    puts "You punch the sword."
+    puts "The sword takes no damage."
+    puts "You hurt your fist punching a sword."
+    puts "You take 1 damage [#{puncher.hp} -> #{puncher.hp - 1}]"
+    puncher.hp -= 1
   end
 end
 
-class Container
-  attr_reader :name
-  attr_accessor :entity_list
+class Container < Entity
+  attr_accessor :entity_list, :free_space
   def initialize(opts = {})
     @name = opts[:name]
     @entity_list = []
     @status = opts[:status] || "closed"
+    @free_space = 1
   end
 
   def look_text
@@ -150,18 +189,38 @@ class Container
 end
 
 class RightHand < Container
-  def initialize
+  attr_reader :owner, :damage
+  def initialize(owner)
     super(name: "right hand")
+    @owner = owner
+    @damage = 1
   end
 
-  def look_text
-    return "There is nothing in your right hand." if @entity_list.empty?
-    "In your right hand, you are holding a #{@entity_list[0].name}"
+  def looked_at
+    if @entity_list.empty?
+      puts "There is nothing in your right hand."
+    else
+      puts "In your right hand, you are holding a #{@entity_list[0].name}"
+    end
   end
 
   def attack(target)
-    puts "You punch the #{target.name}."
-    target.take_damage(1)
+    if @entity_list.empty?
+      @owner.attacking_with = self
+      target.is_punched(@owner)
+    else
+      @owner.attacking_with = @entity_list[0]
+      @entity_list[0].attack(target)
+    end
+    @owner.attacking_with = nil
+  end
+
+  def grab(target)
+    if @free_space >= target.volume
+      @owner.grabbing_with = self
+      target.is_grabbed(@owner)
+      @owner.grabbing_with = nil
+    end
   end
 
   def punch(target)
@@ -178,12 +237,12 @@ class Room
     @look_file = "look_text/" + opts[:look_file]
   end
 
-  def look_text
+  def is_looked_at
     output = File.read(@look_file)
     @entity_list.each do |entity|
       output += "\nThere is a #{entity.name} here."
     end
-    output
+    puts output
   end
 end
 
