@@ -13,7 +13,8 @@ class Main
   def run
     loop do
       puts
-      @user.parse
+      command = @user.parse
+      @user.run_command(command)
       # @enemy.attack(@player)
     end
   end
@@ -45,13 +46,51 @@ class User
   def parse
     print " > "
     command_name, target_name = gets.strip.chomp.split(" ", 2)
-    command = @commands[command_name.to_sym].new || BadCommand.new(command_name)
+    command = find_command(command_name)
     target_list = @range_list[command.range]
     command.run(
       actor: @player,
       target_list: target_list,
       target_name: target_name
     )
+  end
+
+  def parse
+    print " > "
+    line = gets.strip.chomp.split(" ", 2)
+    line[1] = line[1].split("with", 2) if line[1]
+    line.flatten.map { |section| section.strip }
+  end
+
+  def run_command(line)
+    proper_line = {player: @player}
+    verb = verbify(line[0])
+    proper_line[:subject] = subjectify(line[1], @range_list[verb.range])
+    proper_line[:object] = objectify(line[4], @range_list[:held])
+    verb.run(proper_line)
+  end
+
+  def verbify(line)
+    lookup = @commands[line.to_sym]
+    lookup ? lookup.new : BadCommand.new(command_name)
+  end
+
+  def subjectify(subject, range)
+    if subject
+      range.flatten.each { |entity| return entity if entity.name == subject }
+      BadTarget.new(subject)
+    else
+      false
+    end
+  end
+
+  def objectify(object, range)
+    if object
+      range.flatten.each { |entity| return entity if entity.name == object }
+      BadItem.new(object)
+    else
+      false
+    end
   end
 end
 

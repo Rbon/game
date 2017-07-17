@@ -22,7 +22,7 @@ class Entity
 
   def is_attacked(attacker)
     puts "You attack the #{@name}."
-    is_damaged(attacker.attacking_with.damage)
+    is_damaged(attacker.attacking_with.attack_damage)
   end
 
   def is_damaged(amount)
@@ -53,10 +53,7 @@ class Entity
 
   def is_punched(puncher)
     puts "You punch the #{@name}."
-    is_damaged(puncher.attacking_with.damage)
-  end
-
-  def is_thrown(target)
+    is_damaged(puncher.attacking_with.attack_damage)
   end
 end
 
@@ -138,7 +135,7 @@ end
 class Weapon < Entity
   def initialize(opts)
     super(opts)
-    @damage = 1
+    @damage = 2
   end
   def attack(target)
     target.is_attacked(@owner)
@@ -146,6 +143,7 @@ class Weapon < Entity
 end
 
 class Sword < Weapon
+  attr_reader :attack_damage
   def initialize(opts)
     super(opts)
     @name = "sword"
@@ -189,11 +187,11 @@ class Container < Entity
 end
 
 class RightHand < Container
-  attr_reader :owner, :damage
+  attr_reader :owner, :attack_damage
   def initialize(owner)
     super(name: "right hand")
     @owner = owner
-    @damage = 1
+    @attack_damage = 1
   end
 
   def looked_at

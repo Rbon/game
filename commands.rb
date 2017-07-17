@@ -4,15 +4,8 @@ class Command
     @range = nil
   end
 
-  def find_target(args)
-    args[:target_list].flatten.each do |entity|
-      return entity if entity.name == args[:target_name]
-    end
-    false
-  end
-
-  def bad_target(target_name)
-    puts "Unknown #{@action} target: #{target_name}"
+  def check
+    true
   end
 
   def run(args)
@@ -28,13 +21,33 @@ class Command
   end
 end
 
-class BadCommand
+class BadCommand < Command
   def initialize(command_name)
     @command_name = command_name
   end
 
-  def run(args)
+  def run(*args)
     puts "Unknown command: #{@command_name}"
+  end
+end
+
+class BadTarget
+  def initialize(opts)
+    @name = opts
+  end
+
+  def complain(*args)
+    puts "You don't see any \"#{@name}\" here."
+  end
+
+  alias :is_attacked :complain
+  alias :is_punched :complain
+end
+
+class BadItem < BadTarget
+  def check
+    puts "You don't have any \"#{@name}\" at the ready"
+    false
   end
 end
 
@@ -56,6 +69,10 @@ class Attack < Command
   def initialize
     @action = :attack
     @range = :room
+  end
+
+  def run(args)
+    args[:player].send(@action, args[:subject])
   end
 end
 
