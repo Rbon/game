@@ -1,5 +1,9 @@
 class Command
   attr_reader :range
+  def initialize
+    @range = nil
+  end
+
   def find_target(args)
     args[:target_list].flatten.each do |entity|
       return entity if entity.name == args[:target_name]
@@ -42,8 +46,8 @@ class Look < Command
   end
 end
 
-class Halt
-  def run(junk, more_junk)
+class Halt < Command
+  def run(*args)
     exit
   end
 end
