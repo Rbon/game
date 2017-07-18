@@ -40,15 +40,21 @@ class BadTarget
     puts "You don't see any \"#{@name}\" here."
   end
 
+  def is_dropped(*args)
+    puts "You don't have any \"#{@name}\" to drop."
+  end
+
   alias :is_attacked :complain
   alias :is_punched :complain
 end
 
 class BadItem < BadTarget
-  def check
+  def complain(*args)
     puts "You don't have any \"#{@name}\" at the ready"
-    false
   end
+
+  alias :attack :complain
+  alias :punch :complain
 end
 
 class Look < Command
@@ -72,14 +78,18 @@ class Attack < Command
   end
 
   def run(args)
-    args[:player].send(@action, args[:subject])
+    args[:player].send(@action, args[:subject], args[:object])
   end
 end
 
 class Drop < Command
   def initialize
     @action = :drop
-    @range = :held
+    @range = :hands
+  end
+
+  def run(args)
+    args[:player].send(@action, args[:subject])
   end
 end
 
@@ -87,6 +97,10 @@ class Grab < Command
   def initialize
     @action = :grab
     @range = :room
+  end
+
+  def run(args)
+    args[:player].send(@action, args[:subject], args[:object])
   end
 end
 

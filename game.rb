@@ -25,12 +25,21 @@ class User
     @player = opts[:player]
     @range_list = {
       room: @player.room.entity_list,
-      held: @player.right_hand.entity_list,
+      hands: [
+        @player.right_hand,
+        @player.right_hand.entity_list,
+        @player.left_hand,
+        @player.left_hand.entity_list
+      ],
       everything: [
           @player.room.entity_list,
           @player.right_hand,
           @player.right_hand.entity_list,
           @player.room
+      ],
+      held: [
+        @player.right_hand.entity_list,
+        @player.left_hand.entity_list
       ]
     }
     @commands = {
@@ -66,17 +75,17 @@ class User
     proper_line = {player: @player}
     verb = verbify(line[0])
     proper_line[:subject] = subjectify(line[1], @range_list[verb.range])
-    proper_line[:object] = objectify(line[4], @range_list[:held])
+    proper_line[:object] = objectify(line[2], @range_list[:hands])
     verb.run(proper_line)
   end
 
   def verbify(line)
     lookup = @commands[line.to_sym]
-    lookup ? lookup.new : BadCommand.new(command_name)
+    lookup ? lookup.new : BadCommand.new(line)
   end
 
   def subjectify(subject, range)
-    if subject
+    if subject and range
       range.flatten.each { |entity| return entity if entity.name == subject }
       BadTarget.new(subject)
     else

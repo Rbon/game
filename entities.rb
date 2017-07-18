@@ -44,7 +44,7 @@ class Entity
     @room.entity_list.delete(self)
     @container.entity_list.push(self)
     @container.free_space -= @volume
-    puts "You grab the #{@name} in your right hand."
+    puts "You grab the #{@name} with your #{@owner.grabbing_with.name}."
   end
 
   def is_looked_at
@@ -52,13 +52,13 @@ class Entity
   end
 
   def is_punched(puncher)
-    puts "You punch the #{@name}."
+    puts "You punch the #{@name} with your #{puncher.attacking_with.name}."
     is_damaged(puncher.attacking_with.attack_damage)
   end
 end
 
 class Actor < Entity
-  attr_accessor :right_hand, :level, :race, :attacking_with, :grabbing_with
+  attr_accessor :right_hand, :left_hand, :level, :race, :attacking_with, :grabbing_with
 
   def initialize(opts = {})
     super(opts)
@@ -66,11 +66,14 @@ class Actor < Entity
     @race = "RACE NOT SET"
     @hp = 10
     @right_hand = RightHand.new(self)
+    @left_hand = LeftHand.new(self)
     @attacking_with = nil
+    @grabbing_with = nil
   end
 
-  def grab(target)
-    @right_hand.grab(target)
+  def grab(target, item = nil)
+    (item || @right_hand).grab(target)
+    @grabbing_with = (item || @right_hand)
   end
 
   def drop(target)
@@ -94,8 +97,8 @@ class Player < Actor
     @name = "self"
   end
 
-  def attack(target)
-    @right_hand.attack(target)
+  def attack(target, item = nil)
+    (item || @right_hand).attack(target)
   end
 
   def look(target)
@@ -162,7 +165,6 @@ end
 class Container < Entity
   attr_accessor :entity_list, :free_space
   def initialize(opts = {})
-    @name = opts[:name]
     @entity_list = []
     @status = opts[:status] || "closed"
     @free_space = 1
@@ -189,7 +191,8 @@ end
 class RightHand < Container
   attr_reader :owner, :attack_damage
   def initialize(owner)
-    super(name: "right hand")
+    super({})
+    @name = "right hand"
     @owner = owner
     @attack_damage = 1
   end
@@ -223,6 +226,13 @@ class RightHand < Container
 
   def punch(target)
     attack(target)
+  end
+end
+
+class LeftHand < RightHand
+  def initialize(owner)
+    super(owner)
+    @name = "left hand"
   end
 end
 
