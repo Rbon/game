@@ -71,21 +71,24 @@ class Actor < Entity
     @grabbing_with = nil
   end
 
+  def attack(target, item = nil)
+    (item || @right_hand).attack(target)
+  end
+
   def grab(target, item = nil)
     (item || @right_hand).grab(target)
-    @grabbing_with = (item || @right_hand)
   end
 
   def drop(target)
     target.is_dropped
   end
 
-  def punch(target)
-    if @right_hand.entity_list.empty?
-      @right_hand.punch(target)
-    else
-      @right_hand.entity_list[0].punch
-    end
+  def look(target)
+    target.is_looked_at
+  end
+
+  def punch(target, item = nil)
+    (item || @right_hand).punch(target)
   end
 end
 
@@ -95,22 +98,6 @@ class Player < Actor
     @level = 1
     @race = "human"
     @name = "self"
-  end
-
-  def attack(target, item = nil)
-    (item || @right_hand).attack(target)
-  end
-
-  def look(target)
-    target.is_looked_at
-  end
-
-  def punch(target)
-    if @right_hand.entity_list.empty?
-      @right_hand.punch(target)
-    else
-      @right_hand.entity_list[0].punch(target)
-    end
   end
 
   def is_punched

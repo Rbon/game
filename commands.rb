@@ -3,22 +3,6 @@ class Command
   def initialize
     @range = nil
   end
-
-  def check
-    true
-  end
-
-  def run(args)
-    if @default_target
-      args[:target_name] = @default_target unless args[:target_name]
-    end
-    target = find_target(args)
-    if target
-      args[:actor].send(@action, target)
-    else
-      bad_target(args[:target_name])
-    end
-  end
 end
 
 class BadCommand < Command
@@ -46,6 +30,7 @@ class BadTarget
 
   alias :is_attacked :complain
   alias :is_punched :complain
+  alias :is_looked_at :complain
 end
 
 class BadItem < BadTarget
@@ -62,6 +47,11 @@ class Look < Command
     @action = :look
     @range = :everything
     @default_target = "room"
+  end
+
+  def run(args)
+    target = args[:subject] || args[:player].room
+    args[:player].send(@action, target)
   end
 end
 
@@ -108,6 +98,10 @@ class Punch < Command
   def initialize
     @action = :punch
     @range = :room
+  end
+
+  def run(args)
+    args[:player].send(@action, args[:subject], args[:object])
   end
 end
 
