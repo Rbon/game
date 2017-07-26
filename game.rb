@@ -59,29 +59,17 @@ class User
 
   def parse
     print " > "
-    command_name, target_name = gets.strip.chomp.split(" ", 2)
-    command = find_command(command_name)
-    target_list = @range_list[command.range]
-    command.run(
-      actor: @player,
-      target_list: target_list,
-      target_name: target_name
-    )
-  end
-
-  def parse
-    print " > "
     line = gets.strip.chomp.split(" ", 2)
     line[1] = line[1].split("with", 2) if line[1]
     line.flatten.map { |section| section.strip }
   end
 
   def run_command(line)
-    proper_line = {player: @player}
+    targets = {}
     verb = verbify(line[0])
-    proper_line[:subject] = subjectify(line[1], @range_list[verb.range])
-    proper_line[:object] = objectify(line[2], @range_list[:hands])
-    verb.run(proper_line)
+    targets[:subject] = subjectify(line[1], @range_list[verb.range])
+    targets[:object] = objectify(line[2], @range_list[:hands])
+    @player.act(action: verb.action, targets: targets)
   end
 
   def verbify(line)

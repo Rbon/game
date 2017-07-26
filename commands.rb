@@ -1,5 +1,5 @@
 class Command
-  attr_reader :range
+  attr_reader :range, :action
   def initialize
     @range = nil
   end

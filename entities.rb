@@ -1,3 +1,5 @@
+require "./actions.rb"
+
 class Entity
   attr_reader :room, :name, :volume
   attr_accessor :hp
@@ -110,6 +112,10 @@ class Actor < Entity
     @attacking_with = nil
     @grabbing_with = nil
     @volume = 10
+    @action_list = {
+      look: ActionLook,
+      grab: ActionGrab
+    }
   end
 
   def attack(target, item = nil)
@@ -124,12 +130,12 @@ class Actor < Entity
     target.is_dropped
   end
 
-  def look(target)
-    target.is_looked_at
-  end
-
   def punch(target, item = nil)
     (item || @right_hand).punch(target)
+  end
+
+  def act(args)
+    @action_list[args[:action]].new(actor: self).act(args[:targets])
   end
 end
 
