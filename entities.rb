@@ -114,24 +114,12 @@ class Actor < Entity
     @volume = 10
     @action_list = {
       look: ActionLook,
-      grab: ActionGrab
+      grab: ActionGrab,
+      attack: ActionAttack,
+      drop: ActionDrop,
+      punch: ActionPunch,
+      error: BadAction
     }
-  end
-
-  def attack(target, item = nil)
-    (item || @right_hand).attack(target)
-  end
-
-  def grab(target, item = nil)
-    (item || @right_hand).grab(target)
-  end
-
-  def drop(target)
-    target.is_dropped
-  end
-
-  def punch(target, item = nil)
-    (item || @right_hand).punch(target)
   end
 
   def act(args)
@@ -157,7 +145,7 @@ class Player < Actor
     @backpack.unstash(item)
   end
 
-  def is_punched
+  def is_punched(*args)
     puts "You punch yourself."
   end
 

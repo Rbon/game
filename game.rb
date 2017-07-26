@@ -1,4 +1,3 @@
-require "./commands.rb"
 require "./entities.rb"
 
 class Main
@@ -45,15 +44,15 @@ class User
         @player.backpack.entity_list
       ]
     }
-    @commands = {
-      attack: Attack,
-      drop: Drop,
-      grab: Grab,
-      look: Look,
-      punch: Punch,
-      quit: Halt,
-      stash: Stash,
-      unstash: Unstash
+    @command_ranges = {
+      attack: :room,
+      drop: :hands,
+      grab: :room,
+      look: :everything,
+      punch: :room,
+      quit: nil,
+      stash: :held,
+      unstash: :backpack,
     }
   end
 
@@ -66,15 +65,11 @@ class User
 
   def run_command(line)
     targets = {}
-    verb = verbify(line[0])
-    targets[:subject] = subjectify(line[1], @range_list[verb.range])
+    verb = (@command_ranges[line[0].to_sym] ? line[0].to_sym : :error)
+    range = @command_ranges[verb] || :error
+    targets[:subject] = subjectify(line[1], @range_list[range])
     targets[:object] = objectify(line[2], @range_list[:hands])
-    @player.act(action: verb.action, targets: targets)
-  end
-
-  def verbify(line)
-    lookup = @commands[line.to_sym]
-    lookup ? lookup.new : BadCommand.new(line)
+    @player.act(action: verb, targets: targets)
   end
 
   def subjectify(subject, range)
