@@ -5,21 +5,21 @@ class Main
     @room = TestRoom.new(look_file: "TestRoom.txt")
     @player = Player.new(room: @room)
     @enemy = Enemy.new(room: @room, name: "crab")
-    @user = User.new(player: @player)
+    @commands = Commands.new(player: @player)
     @sword = Sword.new(room: @room)
   end
 
   def run
     loop do
       puts
-      command = @user.parse
-      @user.run_command(command)
+      command = @commands.parse
+      @commands.run_command(command)
       # @enemy.attack(@player)
     end
   end
 end
 
-class User
+class Commands
   def initialize(opts)
     @player = opts[:player]
     @range_list = {
@@ -50,9 +50,9 @@ class User
       grab: :room,
       look: :everything,
       punch: :room,
-      quit: nil,
+      quit: :none,
       stash: :held,
-      unstash: :backpack,
+      unstash: :backpack
     }
   end
 
@@ -67,9 +67,9 @@ class User
     targets = {}
     verb = (@command_ranges[line[0].to_sym] ? line[0].to_sym : :error)
     range = @command_ranges[verb] || :error
-    targets[:subject] = subjectify(line[1], @range_list[range])
-    targets[:object] = objectify(line[2], @range_list[:hands])
-    @player.act(action: verb, targets: targets)
+    subject =  subjectify(line[1], @range_list[range])
+    object = objectify(line[2], @range_list[:hands])
+    @player.act(action: verb, subject: subject, object: object)
   end
 
   def subjectify(subject, range)
@@ -77,7 +77,7 @@ class User
       range.flatten.each { |entity| return entity if entity.name == subject }
       BadEntity.new(name: subject)
     else
-      false
+      BadEntity.new(name: subject)
     end
   end
 

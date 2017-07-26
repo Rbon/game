@@ -11,6 +11,30 @@ class Entity
     @hp = 10
     @volume = 1
     @owner = nil
+    @action_list = {
+      attack: ItemCannotAttack,
+      punch: ItemCannotAttack,
+      error: BadAction
+    }
+    @reaction_list = {
+      attack: AttackReaction,
+      look: LookReaction
+    }
+  end
+
+  def act(args)
+    @action_list[args[:action]].new(
+      entity: self,
+      subject: args[:subject],
+      object: args[:object]
+    ).act
+  end
+
+  def react(args)
+    @reaction_list[args[:action]].new(
+      entity: self,
+      actor: args[:actor]
+    ).act
   end
 
   def attack(*args)
@@ -113,17 +137,12 @@ class Actor < Entity
     @grabbing_with = nil
     @volume = 10
     @action_list = {
-      look: ActionLook,
-      grab: ActionGrab,
-      attack: ActionAttack,
-      drop: ActionDrop,
-      punch: ActionPunch,
-      error: BadAction
+      look: ActorLook,
+      grab: ActorGrab,
+      attack: ActorAttack,
+      drop: ActorDrop,
+      punch: ActorPunch
     }
-  end
-
-  def act(args)
-    @action_list[args[:action]].new(actor: self).act(args[:targets])
   end
 end
 
@@ -135,15 +154,9 @@ class Player < Actor
     @race = "human"
     @name = "self"
     @backpack = Backpack.new(self)
+    @action_list[:quit] = Halt
   end
 
-  def stash(item)
-    @backpack.stash(item)
-  end
-
-  def unstash(item)
-    @backpack.unstash(item)
-  end
 
   def is_punched(*args)
     puts "You punch yourself."

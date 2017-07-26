@@ -1,41 +1,105 @@
 class Action
   def initialize(opts)
-    @actor = opts[:actor]
+    @entity = opts[:entity]
+    @subject = opts[:subject]
+    @object = opts[:object]
   end
 end
 
 class BadAction < Action
   def act(args)
-    puts "Unknwon action."
+    puts "Unknown action."
   end
 end
 
-class ActionLook < Action
-  def act(targets)
-    targets[:subject].is_looked_at
+class ActorLook < Action
+  def act
+    @subject.react(
+      action: :look,
+      actor: @entity
+    )
   end
 end
 
-class ActionGrab < Action
-  def act(targets)
-    (targets[:object] || @actor.right_hand).grab(targets[:subject])
+class ActorGrab < Action
+  def act(args)
+    (args[:object] || @entity.right_hand).grab(args[:subject])
   end
 end
 
-class ActionPunch < Action
-  def act(targets)
-    (targets[:object] || @actor.right_hand).punch(targets[:subject])
+class ActorPunch < Action
+  def act(args)
+    (args[:object] || @entity.right_hand).act(action: :punch, args: args)
   end
 end
 
-class ActionAttack < Action
-  def act(targets)
-    (targets[:object] || @actor.right_hand).attack(targets[:subject])
+class ActorAttack < Action
+  def act
+    puts "ACTOR ATTACKING"
+    @entity.right_hand.act(
+      action: :attack,
+      subject: @subject,
+      object: @object
+    )
   end
 end
 
-class ActionDrop < Action
-  def act(targets)
+class WeaponAttack < Action
+  def act
+    puts "WEAPON ATTACKING"
+    @subject.react(
+      action: :attack,
+      actor: @entity
+    )
+  end
+end
+
+class ActorDrop < Action
+  def act(args)
     targets[:subject].is_dropped
+  end
+end
+
+class ActorStash < Action
+  def act(args)
+    @actor.backpack.stash(args[:subject])
+  end
+end
+
+class ActorUnstash < Action
+  def act(args)
+    @actor.backpack.unstash(args[:subject])
+  end
+end
+
+class Halt < Action
+  def act(args)
+    exit
+  end
+end
+
+class ItemCannotAttack < Action
+  def act(args)
+    puts "You cannot attack with #{@entity.name}."
+  end
+end
+
+class Reaction
+  def initialize(opts)
+    @entity = opts[:entity]
+    @actor = opts[:actor]
+  end
+end
+
+class LookReaction < Reaction
+  def act
+    puts "You look longingly at the #{@entity.name}."
+  end
+end
+
+class AttackReaction < Reaction
+  def act
+    puts "You attack the #{@entity.name}."
+    @entity.is_damaged(@actor.attacking_with.attack_damage)
   end
 end
