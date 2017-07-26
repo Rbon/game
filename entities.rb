@@ -2,11 +2,10 @@ class Entity
   attr_reader :room, :name, :volume
   attr_accessor :hp
   def initialize(opts = {})
-    @room = opts[:room] || Room.new(look_text: "TestRoom.txt")
+    @room = opts[:room]
+    @room.entity_list.push(self) if @room
     @name = opts[:name] || "[NAME NOT SET]"
     @look_file = opts[:look_file] || "default"
-    @room.entity_list.push(self)
-    @container = nil
     @hp = 10
     @volume = 1
     @owner = nil
@@ -35,7 +34,7 @@ class Entity
     @room.entity_list.push(self)
     @container.free_space += @volume
     @container = nil
-    puts @room.dropped_item_text(self)
+    puts "You drop the #{@name} on the floor."
   end
 
   def is_grabbed(grabber)
@@ -55,6 +54,47 @@ class Entity
     puts "You punch the #{@name} with your #{puncher.attacking_with.name}."
     is_damaged(puncher.attacking_with.attack_damage)
   end
+
+  def is_stashed(actor)
+    actor.right_hand.entity_list.delete(self)
+    actor.backpack.entity_list.push(self)
+    puts "You stash the #{@name} in your backpack."
+  end
+
+  def is_unstashed(actor)
+    actor.backpack.entity_list.delete(self)
+    actor.right_hand.entity_list.push(self)
+    puts "You grab the #{@name} from your backpack."
+  end
+end
+
+class BadEntity < Entity
+  def volume
+    0
+  end
+
+  def attack(*args)
+    puts "You don't have any \"#{@name}\" at the ready"
+  end
+
+  def complain(*args)
+    puts "You don't see any \"#{@name}\" here."
+  end
+
+  def is_dropped(*args)
+    puts "You're not holding any \"#{@name}\"."
+  end
+
+  def is_unstashed(*args)
+    puts "There is no \"#{@name}\" in your backpack."
+  end
+
+  alias :punch :attack
+  alias :is_attacked :complain
+  alias :is_punched :complain
+  alias :is_looked_at :complain
+  alias :is_grabbed :complain
+  alias :is_stashed :attack
 end
 
 class Actor < Entity
@@ -69,6 +109,7 @@ class Actor < Entity
     @left_hand = LeftHand.new(self)
     @attacking_with = nil
     @grabbing_with = nil
+    @volume = 10
   end
 
   def attack(target, item = nil)
@@ -93,11 +134,21 @@ class Actor < Entity
 end
 
 class Player < Actor
+  attr_accessor :backpack
   def initialize(opts)
     super(opts)
     @level = 1
     @race = "human"
     @name = "self"
+    @backpack = Backpack.new(self)
+  end
+
+  def stash(item)
+    @backpack.stash(item)
+  end
+
+  def unstash(item)
+    @backpack.unstash(item)
   end
 
   def is_punched
@@ -110,7 +161,9 @@ class Player < Actor
   end
 
   def is_looked_at
-    puts "You are very good looking."
+    @left_hand.is_looked_at
+    @right_hand.is_looked_at
+    @backpack.is_looked_at
   end
 end
 
@@ -157,21 +210,48 @@ class Container < Entity
     @free_space = 1
   end
 
-  def look_text
+  def is_looked_at
     send(@status + "_text")
   end
 
   def open_text
-    return "There is nothing in #{@name}." if @entity_list.empty?
-    output = "In the #{@name} there is:"
-    @entity_list.each do |entity|
-      output += "\na #{entity.name}"
+    if @entity_list.empty?
+      puts "There is nothing in the #{@name}."
+      return
+    else
+      output = "In the #{@name} there is:"
+      @entity_list.each do |entity|
+        output += "\n  a #{entity.name}"
+      end
+      puts output
     end
-    output
   end
 
   def closed_text
-    "The #{@name} is closed, and you cannot see what is inside of it."
+    puts "The #{@name} is closed, and you cannot see what is inside of it."
+  end
+
+  def stash(item)
+    if @free_space >= item.volume
+      item.is_stashed(@owner)
+    else
+      puts "The #{item.name} is too big to fit in the #{@name}."
+    end
+  end
+
+  def unstash(item)
+    item.is_unstashed(@owner)
+  end
+end
+
+class Backpack <  Container
+  def initialize(owner)
+    super({})
+    @name = "backpack"
+    @owner = owner
+  end
+  def is_looked_at
+    open_text
   end
 end
 
@@ -184,9 +264,9 @@ class RightHand < Container
     @attack_damage = 1
   end
 
-  def looked_at
+  def is_looked_at
     if @entity_list.empty?
-      puts "There is nothing in your right hand."
+      puts "There is nothing in your #{@name}."
     else
       puts "In your right hand, you are holding a #{@entity_list[0].name}"
     end
@@ -208,6 +288,8 @@ class RightHand < Container
       @owner.grabbing_with = self
       target.is_grabbed(@owner)
       @owner.grabbing_with = nil
+    else
+      puts "The #{target.name} is too big to hold."
     end
   end
 
@@ -223,6 +305,12 @@ class LeftHand < RightHand
   end
 end
 
+class Bag < Container
+  def name
+    "bag"
+  end
+end
+
 class Room
   attr_accessor :entity_list, :name
 
@@ -235,6 +323,7 @@ class Room
   def is_looked_at
     output = File.read(@look_file)
     @entity_list.each do |entity|
+      next if entity.class == Player
       output += "\nThere is a #{entity.name} here."
     end
     puts output

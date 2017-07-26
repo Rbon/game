@@ -15,33 +15,6 @@ class BadCommand < Command
   end
 end
 
-class BadTarget
-  def initialize(opts)
-    @name = opts
-  end
-
-  def complain(*args)
-    puts "You don't see any \"#{@name}\" here."
-  end
-
-  def is_dropped(*args)
-    puts "You don't have any \"#{@name}\" to drop."
-  end
-
-  alias :is_attacked :complain
-  alias :is_punched :complain
-  alias :is_looked_at :complain
-end
-
-class BadItem < BadTarget
-  def complain(*args)
-    puts "You don't have any \"#{@name}\" at the ready"
-  end
-
-  alias :attack :complain
-  alias :punch :complain
-end
-
 class Look < Command
   def initialize
     @action = :look
@@ -105,3 +78,23 @@ class Punch < Command
   end
 end
 
+class Stash < Command
+  def initialize
+    @action = :stash
+    @range = :held
+  end
+  def run(args)
+    args[:player].send(@action, args[:subject])
+  end
+end
+
+class Unstash < Command
+  def initialize
+    @action = :unstash
+    @range = :backpack
+  end
+
+  def run(args)
+    args[:player].send(@action, args[:subject])
+  end
+end

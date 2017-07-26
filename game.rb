@@ -40,6 +40,9 @@ class User
       held: [
         @player.right_hand.entity_list,
         @player.left_hand.entity_list
+      ],
+      backpack: [
+        @player.backpack.entity_list
       ]
     }
     @commands = {
@@ -48,7 +51,9 @@ class User
       grab: Grab,
       look: Look,
       punch: Punch,
-      quit: Halt
+      quit: Halt,
+      stash: Stash,
+      unstash: Unstash
     }
   end
 
@@ -87,7 +92,7 @@ class User
   def subjectify(subject, range)
     if subject and range
       range.flatten.each { |entity| return entity if entity.name == subject }
-      BadTarget.new(subject)
+      BadEntity.new(name: subject)
     else
       false
     end
@@ -96,7 +101,7 @@ class User
   def objectify(object, range)
     if object
       range.flatten.each { |entity| return entity if entity.name == object }
-      BadItem.new(object)
+      BadEntity.new(name: object)
     else
       false
     end
