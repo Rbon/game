@@ -72,14 +72,23 @@ class WeaponAttack < Action
 end
 
 class ActorStash < Action
-  def act(args)
-    @actor.backpack.stash(args[:subject])
+  def act
+    @entity.backpack.act(
+      action: :stash,
+      subject: @subject,
+      object: @object
+    )
   end
 end
 
 class ActorUnstash < Action
-  def act(args)
-    @actor.backpack.unstash(args[:subject])
+  def act
+    puts "ACTOR UNSTASHING"
+    @entity.backpack.act(
+      action: :unstash,
+      subject: @subject,
+      object: @object
+    )
   end
 end
 
@@ -128,6 +137,25 @@ class FistGrab < Action
   end
 end
 
+class BackpackStash < Action
+  def act
+    @subject.react(
+      action: :stash,
+      actor: @entity.owner
+    )
+  end
+end
+
+class BackpackUnstash < Action
+  def act
+    puts "BACKPACK UNSTASHING"
+    @subject.react(
+      action: :unstash,
+      actor: @entity.owner
+    )
+  end
+end
+
 ## REACTIONS
 class Reaction
   def initialize(opts)
@@ -139,7 +167,10 @@ end
 class AttackReaction < Reaction
   def act
     puts "You attack the #{@entity.name}."
-    @entity.is_damaged(@actor.attacking_with.attack_damage)
+    @entity.react(
+      action: :damage,
+      amount: @actor.attacking_with.attack_damage
+    )
   end
 end
 
@@ -150,6 +181,18 @@ class DropReaction < Reaction
     @entity.container.free_space += @entity.volume
     @entity.container = nil
     puts "You drop the #{@entity.name} on the floor."
+  end
+end
+
+class DamageReaction < Reaction
+  def initialize(opts)
+    super
+    @amount = opts[:amount]
+  end
+
+  def act
+    puts "The #{@entity.name} takes #{@amount} damage. [#{@entity.hp} -> #{@entity.hp - @amount}]"
+    @entity.hp -= @amount
   end
 end
 
@@ -172,7 +215,10 @@ end
 class PunchReaction < Reaction
   def act
     puts "You punch the #{@entity.name}."
-    @entity.is_damaged(@actor.attacking_with.attack_damage)
+    @entity.react(
+      action: :damage,
+      amount: @actor.attacking_with.attack_damage
+    )
   end
 end
 
@@ -207,6 +253,23 @@ class FistLookReaction < Reaction
     else
       puts "In your right hand, you are holding a #{@entity.entity_list[0].name}"
     end
+  end
+end
+
+class ItemStashReaction < Reaction
+  def act
+    @actor.right_hand.entity_list.delete(@entity)
+    @actor.backpack.entity_list.push(@entity)
+    puts "You stash the #{@entity.name} in your backpack."
+  end
+end
+
+class ItemUnstashReaction < Reaction
+  def act
+    puts "ITEM REACTING TO UNSTASH"
+    @actor.backpack.entity_list.delete(@entity)
+    @actor.right_hand.entity_list.push(@entity)
+    puts "You grab the #{@entity.name} from your backpack."
   end
 end
 

@@ -14,17 +14,18 @@ class Entity
     @owner = nil
     @action_list = {
       attack: ItemCannotAttack,
-      drop: DropReaction,
-      grab: GrabReaction,
       punch: ItemCannotAttack,
       error: BadAction
     }
     @reaction_list = {
       attack: AttackReaction,
+      damage: DamageReaction,
       drop: DropReaction,
       grab: GrabReaction,
       look: LookReaction,
-      punch: PunchReaction
+      punch: PunchReaction,
+      stash: ItemStashReaction,
+      unstash: ItemUnstashReaction
     }
   end
 
@@ -39,30 +40,9 @@ class Entity
   def react(args)
     @reaction_list[args[:action]].new(
       entity: self,
-      actor: args[:actor]
+      actor: args[:actor],
+      amount: args[:amount]
     ).act
-  end
-
-  def is_damaged(amount)
-    puts "The #{@name} takes #{amount} damage. [#{@hp} -> #{@hp - amount}]"
-    @hp -= amount
-  end
-
-  def is_dropped
-    @container.entity_list.delete(self)
-    @room.entity_list.push(self)
-    @container.free_space += @volume
-    @container = nil
-    puts "You drop the #{@name} on the floor."
-  end
-
-  def is_grabbed(grabber)
-    @container = grabber.grabbing_with
-    @owner = grabber
-    @room.entity_list.delete(self)
-    @container.entity_list.push(self)
-    @container.free_space -= @volume
-    puts "You grab the #{@name} with your #{@owner.grabbing_with.name}."
   end
 
   def is_stashed(actor)
@@ -120,13 +100,15 @@ class Actor < Entity
     @attacking_with = nil
     @grabbing_with = nil
     @volume = 10
-    @action_list = {
+    @action_list.update(
       look: ActorLook,
       grab: ActorGrab,
       attack: ActorAttack,
       drop: ActorDrop,
-      punch: ActorPunch
-    }
+      punch: ActorPunch,
+      stash: ActorStash,
+      unstash: ActorUnstash
+    )
   end
 end
 
@@ -137,7 +119,7 @@ class Player < Actor
     @level = 1
     @race = "human"
     @name = "self"
-    @backpack = Backpack.new(self)
+    @backpack = Backpack.new(owner: self, room: @room)
     @action_list[:quit] = Halt
     @reaction_list.update(
       punch: PunchSelf,
@@ -166,10 +148,10 @@ class Weapon < Entity
   end
 end
 
-class Sword < Weapon
+class Sword < Entity
   attr_reader :attack_damage
   def initialize(opts)
-    super(opts)
+    super
     @name = "sword"
     @damage = 5
   end
@@ -225,14 +207,17 @@ class Container < Entity
   end
 end
 
-class Backpack <  Container
-  def initialize(owner)
-    super({})
+class Backpack <  Entity
+  attr_accessor :entity_list
+  def initialize(opts)
+    super
     @name = "backpack"
-    @owner = owner
-  end
-  def is_looked_at
-    open_text
+    @owner = opts[:owner]
+    @entity_list = []
+    @action_list.update(
+      stash: BackpackStash,
+      unstash: BackpackUnstash
+    )
   end
 end
 
@@ -253,14 +238,6 @@ class RightHand < Entity
       grab: FistGrab
     )
     @reaction_list[:look] = FistLookReaction
-  end
-
-  def is_looked_at
-    if @entity_list.empty?
-      puts "There is nothing in your #{@name}."
-    else
-      puts "In your right hand, you are holding a #{@entity_list[0].name}"
-    end
   end
 end
 
