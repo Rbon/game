@@ -249,6 +249,7 @@ class RightHand < Entity
     @action_list.update(
       attack: FistAttack,
       punch: FistAttack,
+      drop: FistDrop,
       grab: FistGrab
     )
   end

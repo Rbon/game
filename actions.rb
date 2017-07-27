@@ -108,18 +108,23 @@ class FistAttack < Action
   end
 end
 
+class FistDrop < Action
+  def act
+    @entity.owner.grabbing_with = @entity
+    @subject.react(
+      action: :drop,
+      actor: @entity.owner
+    )
+  end
+end
+
 class FistGrab < Action
   def act
-    if @entity.free_space >= @subject.volume
-      @entity.owner.grabbing_with = @entity
-      @subject.react(
-        action: :grab,
-        actor: @entity.owner
-      )
-      @entity.owner.grabbing_with = nil
-    else
-      puts "The #{target.name} is too big to hold."
-    end
+    @entity.owner.grabbing_with = @entity
+    @subject.react(
+      action: :grab,
+      actor: @entity.owner
+    )
   end
 end
 
@@ -140,8 +145,8 @@ end
 
 class DropReaction < Reaction
   def act
-    @entity.container.entity_list.delete(self)
-    @entity.room.entity_list.push(self)
+    @entity.container.entity_list.delete(@entity)
+    @entity.room.entity_list.push(@entity)
     @entity.container.free_space += @entity.volume
     @entity.container = nil
     puts "You drop the #{@entity.name} on the floor."
@@ -152,9 +157,8 @@ class GrabReaction < Reaction
   def act
     @entity.container = @actor.grabbing_with
     @entity.owner = @actor
-    @entity.room.entity_list.delete(self)
-    @entity.container.entity_list.push(self)
-    @entity.container.free_space -= @entity.volume
+    @entity.room.entity_list.delete(@entity)
+    @entity.container.entity_list.push(@entity)
     puts "You grab the #{@entity.name} with your #{@entity.owner.grabbing_with.name}."
   end
 end
