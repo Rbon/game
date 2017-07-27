@@ -2,94 +2,66 @@ require "./actions.rb"
 
 class Entity
   attr_reader :room, :name, :volume
-  attr_accessor :hp, :container, :owner
+  attr_accessor :hp, :owner
   def initialize(opts = {})
     @room = opts[:room]
-    @room.entity_list.push(self) if @room
+    @container = opts[:container] || @room
+    @container.entity_list.push(self)
     @name = opts[:name] || "[NAME NOT SET]"
     @look_file = opts[:look_file] || "default"
     @hp = 10
     @volume = 1
-    @container = nil
     @owner = nil
     @action_list = {
-      attack: ItemCannotAttack,
-      punch: ItemCannotAttack,
-      error: BadAction
+      attack: AttackFail,
+      punch: AttackFail,
     }
     @reaction_list = {
-      attack: AttackReaction,
-      damage: DamageReaction,
-      drop: DropReaction,
-      grab: GrabReaction,
-      look: LookReaction,
-      punch: PunchReaction,
-      stash: ItemStashReaction,
-      unstash: ItemUnstashReaction
+      attack: Attack,
+      damage: Damage,
+      drop: Drop,
+      grab: Grab,
+      look: Look,
+      punch: Punch,
+      stash: Stash,
+      unstash: Unstash
     }
   end
 
   def act(args)
-    @action_list[args[:action]].new(
-      entity: self,
-      subject: args[:subject],
-      object: args[:object]
-    ).act
+    list = args[:list] || @action_list
+    args[:entity] = self
+    (list[args[:action]] || BadAction).new.act(args)
   end
 
   def react(args)
-    @reaction_list[args[:action]].new(
-      entity: self,
-      actor: args[:actor],
-      amount: args[:amount]
-    ).act
+    args[:list] = @reaction_list
+    act(args)
   end
 
-  def is_stashed(actor)
-    actor.right_hand.entity_list.delete(self)
-    actor.backpack.entity_list.push(self)
-    puts "You stash the #{@name} in your backpack."
-  end
-
-  def is_unstashed(actor)
-    actor.backpack.entity_list.delete(self)
-    actor.right_hand.entity_list.push(self)
-    puts "You grab the #{@name} from your backpack."
+  def container=(container)
+    @container.entity_list.delete(self)
+    @container = container
+    @container.entity_list.push(self)
   end
 end
 
 class BadEntity < Entity
-  def volume
-    0
+  def initialize(opts)
+    @reaction_list = {
+      attack: NullAttack,
+      drop: NullDrop,
+      grab: NullGrab,
+      look: NullLook,
+      punch: NullPunch,
+      stash: NullStash,
+      unstash: NullUnstash
+    }
   end
-
-  def attack(*args)
-    puts "You don't have any \"#{@name}\" at the ready"
-  end
-
-  def complain(*args)
-    puts "You don't see any \"#{@name}\" here."
-  end
-
-  def is_dropped(*args)
-    puts "You're not holding any \"#{@name}\"."
-  end
-
-  def is_unstashed(*args)
-    puts "There is no \"#{@name}\" in your backpack."
-  end
-
-  alias :punch :attack
-  alias :is_attacked :complain
-  alias :is_punched :complain
-  alias :is_looked_at :complain
-  alias :is_grabbed :complain
-  alias :is_stashed :attack
 end
 
 class Actor < Entity
-  attr_accessor :right_hand, :left_hand, :level, :race, :attacking_with, :grabbing_with
-
+  attr_accessor :right_hand, :left_hand, :level, :race
   def initialize(opts = {})
     super(opts)
     @level = 0
@@ -101,13 +73,13 @@ class Actor < Entity
     @grabbing_with = nil
     @volume = 10
     @action_list.update(
-      look: ActorLook,
-      grab: ActorGrab,
-      attack: ActorAttack,
-      drop: ActorDrop,
-      punch: ActorPunch,
-      stash: ActorStash,
-      unstash: ActorUnstash
+      look: PassToTarget,
+      grab: PassToHand,
+      attack: PassToHand,
+      drop: PassToHand,
+      punch: PassToHand,
+      stash: PassToBackpack,
+      unstash: PassToBackpack
     )
   end
 end
@@ -120,16 +92,15 @@ class Player < Actor
     @race = "human"
     @name = "self"
     @backpack = Backpack.new(owner: self, room: @room)
-    @action_list[:quit] = Halt
+    @action_list.update(
+      quit: Halt,
+    )
     @reaction_list.update(
       punch: PunchSelf,
-      look: PlayerLookReaction
+      damage: DamagePlayer,
+      grab: GrabSelf,
+      look: LookSelf
     )
-  end
-
-  def is_damaged(amount)
-    puts "You take #{amount} damage. [#{@hp} -> #{@hp - amount}]"
-    @hp -= amount
   end
 end
 
@@ -149,61 +120,15 @@ class Weapon < Entity
 end
 
 class Sword < Entity
-  attr_reader :attack_damage
+  attr_reader :damage
   def initialize(opts)
     super
     @name = "sword"
     @damage = 5
-  end
-
-  def is_punched(puncher)
-    puts "You punch the sword."
-    puts "The sword takes no damage."
-    puts "You hurt your fist punching a sword."
-    puts "You take 1 damage [#{puncher.hp} -> #{puncher.hp - 1}]"
-    puncher.hp -= 1
-  end
-end
-
-class Container < Entity
-  attr_accessor :entity_list, :free_space
-  def initialize(opts = {})
-    @entity_list = []
-    @status = opts[:status] || "closed"
-    @free_space = 1
-  end
-
-  def is_looked_at
-    send(@status + "_text")
-  end
-
-  def open_text
-    if @entity_list.empty?
-      puts "There is nothing in the #{@name}."
-      return
-    else
-      output = "In the #{@name} there is:"
-      @entity_list.each do |entity|
-        output += "\n  a #{entity.name}"
-      end
-      puts output
-    end
-  end
-
-  def closed_text
-    puts "The #{@name} is closed, and you cannot see what is inside of it."
-  end
-
-  def stash(item)
-    if @free_space >= item.volume
-      item.is_stashed(@owner)
-    else
-      puts "The #{item.name} is too big to fit in the #{@name}."
-    end
-  end
-
-  def unstash(item)
-    item.is_unstashed(@owner)
+    @action_list[:attack] = PassToTarget
+    @reaction_list.update(
+      punch: PunchSword
+    )
   end
 end
 
@@ -215,14 +140,14 @@ class Backpack <  Entity
     @owner = opts[:owner]
     @entity_list = []
     @action_list.update(
-      stash: BackpackStash,
-      unstash: BackpackUnstash
+      stash: Stash,
+      unstash: Unstash
     )
   end
 end
 
 class RightHand < Entity
-  attr_reader :owner, :attack_damage, :entity_list
+  attr_reader :owner, :damage, :entity_list
   attr_accessor :free_space
   def initialize(opts)
     super
@@ -234,10 +159,11 @@ class RightHand < Entity
     @action_list.update(
       attack: FistAttack,
       punch: FistAttack,
-      drop: FistDrop,
-      grab: FistGrab
+      drop: PassToTarget,
+      grab: PassToTarget
     )
-    @reaction_list[:look] = FistLookReaction
+    @reaction_list[:look] = LookFist
+    @damage = 1
   end
 end
 
@@ -245,12 +171,6 @@ class LeftHand < RightHand
   def initialize(opts)
     super
     @name = "left hand"
-  end
-end
-
-class Bag < Container
-  def name
-    "bag"
   end
 end
 

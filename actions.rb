@@ -1,281 +1,215 @@
-class Action
-  def initialize(opts)
-    @entity = opts[:entity]
-    @subject = opts[:subject]
-    @object = opts[:object]
+class BadAction
+  def act(args)
+    puts "Unknown action: #{args[:action]}"
   end
 end
 
-class BadAction < Action
-  def act
-    puts "Unknown action."
+class PassToHand
+  def act(args)
+    args[:tool] ||= args[:actor].right_hand
+    args[:tool].act(args)
   end
 end
 
-class ActorAttack < Action
-  def act
-    @entity.right_hand.act(
-      action: :attack,
-      subject: @subject,
-      object: @object
+class PassToTarget
+  def act(args)
+    args[:target].react(args)
+  end
+end
+
+class PassToBackpack
+  def act(args)
+    args[:tool] = args[:actor].backpack
+    args[:tool].act(args)
+  end
+end
+
+class FistAttack
+  def act(args)
+    if args[:tool].entity_list.empty?
+      args[:action] = :punch
+    else
+      args[:tool] = args[:tool].entity_list[0]
+    end
+    args[:target].react(args)
+  end
+end
+
+class Attack
+  def act(args)
+    puts "You attack the #{args[:target].name} with your #{args[:tool].name}."
+    args.update(
+      action: :damage,
+      amount: args[:tool].damage
     )
+    args[:target].react(args)
   end
 end
 
-class ActorDrop < Action
-  def act
-    @entity.right_hand.act(
-      action: :drop,
-      subject: @subject,
-      object: @object
-    )
-  end
-end
-
-class ActorGrab < Action
-  def act
-    @entity.right_hand.act(
-      action: :grab,
-      subject: @subject,
-      object: @object
-    )
-  end
-end
-
-class ActorLook < Action
-  def act
-    @subject.react(
-      action: :look,
-      actor: @entity
-    )
-  end
-end
-
-class ActorPunch < Action
-  def act
-    @entity.right_hand.act(
-      action: :punch,
-      subject: @subject,
-      object: @object
-    )
-  end
-end
-
-class WeaponAttack < Action
-  def act
-    @entity.owner.attacking_with = @entity
-    @subject.react(
-      action: :attack,
-      actor: @entity.owner
-    )
-  end
-end
-
-class ActorStash < Action
-  def act
-    @entity.backpack.act(
-      action: :stash,
-      subject: @subject,
-      object: @object
-    )
-  end
-end
-
-class ActorUnstash < Action
-  def act
-    puts "ACTOR UNSTASHING"
-    @entity.backpack.act(
-      action: :unstash,
-      subject: @subject,
-      object: @object
-    )
-  end
-end
-
-class ItemCannotAttack < Action
+class AttackFail
   def act
     puts "You cannot attack with #{@entity.name}."
   end
 end
 
-class FistAttack < Action
-  def act
-    if @entity.entity_list.empty?
-      @entity.owner.attacking_with = @entity
-      @subject.react(
-        action: :punch,
-        actor: @entity.owner
-      )
-    else
-      @entity.owner.attacking_with = @entity.entity_list[0]
-      @entity.entity_list[0].act(
-        action: :attack,
-        subject: @subject
-      )
-    end
-    @entity.owner.attacking_with = nil
-  end
-end
-
-class FistDrop < Action
-  def act
-    @entity.owner.grabbing_with = @entity
-    @subject.react(
-      action: :drop,
-      actor: @entity.owner
+class Damage
+  def act(args)
+    puts(
+      "The #{args[:target].name} takes #{args[:amount]} damage. " +
+      "[#{args[:target].hp} -> #{args[:target].hp - args[:amount]}]"
     )
+    args[:target].hp -= args[:amount]
   end
 end
 
-class FistGrab < Action
+class DamagePlayer
   def act
-    @entity.owner.grabbing_with = @entity
-    @subject.react(
-      action: :grab,
-      actor: @entity.owner
-    )
-  end
-end
-
-class BackpackStash < Action
-  def act
-    @subject.react(
-      action: :stash,
-      actor: @entity.owner
-    )
-  end
-end
-
-class BackpackUnstash < Action
-  def act
-    puts "BACKPACK UNSTASHING"
-    @subject.react(
-      action: :unstash,
-      actor: @entity.owner
-    )
-  end
-end
-
-## REACTIONS
-class Reaction
-  def initialize(opts)
-    @entity = opts[:entity]
-    @actor = opts[:actor]
-  end
-end
-
-class AttackReaction < Reaction
-  def act
-    puts "You attack the #{@entity.name}."
-    @entity.react(
-      action: :damage,
-      amount: @actor.attacking_with.attack_damage
-    )
-  end
-end
-
-class DropReaction < Reaction
-  def act
-    @entity.container.entity_list.delete(@entity)
-    @entity.room.entity_list.push(@entity)
-    @entity.container.free_space += @entity.volume
-    @entity.container = nil
-    puts "You drop the #{@entity.name} on the floor."
-  end
-end
-
-class DamageReaction < Reaction
-  def initialize(opts)
-    super
-    @amount = opts[:amount]
-  end
-
-  def act
-    puts "The #{@entity.name} takes #{@amount} damage. [#{@entity.hp} -> #{@entity.hp - @amount}]"
+    puts "You take #{@amount} damage. [#{@entity.hp} -> #{@entity.hp - @amount}]"
     @entity.hp -= @amount
   end
 end
 
-class GrabReaction < Reaction
-  def act
-    @entity.container = @actor.grabbing_with
-    @entity.owner = @actor
-    @entity.room.entity_list.delete(@entity)
-    @entity.container.entity_list.push(@entity)
-    puts "You grab the #{@entity.name} with your #{@entity.owner.grabbing_with.name}."
+class Drop
+  def act(args)
+    args[:tool].entity_list.delete(args[:target])
+    args[:actor].room.entity_list.push(args[:target])
+    puts "You drop the #{args[:target].name} on the floor."
   end
 end
 
-class LookReaction < Reaction
-  def act
-    puts "You look longingly at the #{@entity.name}."
+class Grab
+  def act(args)
+    args[:target].container = args[:tool]
+    puts "You grab the #{args[:target].name} with your #{args[:tool].name}."
   end
 end
 
-class PunchReaction < Reaction
+class GrabSelf
   def act
-    puts "You punch the #{@entity.name}."
-    @entity.react(
-      action: :damage,
-      amount: @actor.attacking_with.attack_damage
-    )
+    puts "You take firm hold of yourself."
   end
 end
 
-class PunchSelf < Reaction
-  def act
-    puts "You punch yourself."
+class Look
+  def act(args)
+    puts "It's a #{args[:target].name}."
   end
 end
 
-class PlayerLookReaction < Reaction
-  def act
-    @entity.left_hand.is_looked_at
-    @entity.right_hand.is_looked_at
-    @entity.backpack.is_looked_at
-  end
-end
-
-class SwordPunchReaction < Reaction
-  def act
-    puts "You punch the sword."
-    puts "The sword takes no damage."
-    puts "You hurt your fist punching a sword."
-    puts "You take 1 damage [#{@actor.hp} -> #{@actor.hp - 1}]"
-    @actor.hp -= 1
-  end
-end
-
-class FistLookReaction < Reaction
-  def act
-    if @entity.entity_list.empty?
-      puts "There is nothing in your #{@entity.name}."
+class LookFist
+  def act(args)
+    if args[:target].entity_list.empty?
+      puts "There is nothing in your #{args[:target].name}."
     else
-      puts "In your right hand, you are holding a #{@entity.entity_list[0].name}"
+      puts "In your right hand, you are holding a #{args[:target].entity_list[0].name}."
     end
   end
 end
 
-class ItemStashReaction < Reaction
-  def act
-    @actor.right_hand.entity_list.delete(@entity)
-    @actor.backpack.entity_list.push(@entity)
-    puts "You stash the #{@entity.name} in your backpack."
+class LookSelf
+  def act(args)
+    [
+      args[:actor].left_hand,
+      args[:actor].right_hand,
+      args[:actor].backpack
+    ].each do |target|
+      args[:target] = target
+      target.react(args)
+    end
   end
 end
 
-class ItemUnstashReaction < Reaction
+class Punch
+  def act(args)
+    puts "You punch the #{args[:target].name} with your #{args[:tool].name}."
+    args.update(
+      action: :damage,
+      amount: args[:tool].damage
+    )
+    args[:target].react(args)
+  end
+end
+
+class PunchSelf
+  def act(args)
+    puts "You punch yourself."
+    args[:action] = :damage
+    args[:actor].react(args)
+  end
+end
+
+class PunchSword
   def act
-    puts "ITEM REACTING TO UNSTASH"
-    @actor.backpack.entity_list.delete(@entity)
-    @actor.right_hand.entity_list.push(@entity)
-    puts "You grab the #{@entity.name} from your backpack."
+    puts "You punch the sword."
+    puts "The sword takes no damage."
+    puts "You hurt your fist punching a sword."
+    @actor.react(
+      action: :damage,
+      amount: 1
+    )
+  end
+end
+
+class Stash
+  def act(args)
+    puts "You stash your #{args[:target]} in your #{args[:tool]}."
+    args[:target].container = args[:tool]
+  end
+end
+
+class Unstash
+  def act(args)
+    puts "You grab your #{args[:target].name} from your backpack."
+    args[:target].container = args[:actor].right_hand
+  end
+end
+
+## BAD REACTIONS
+class NullAttack
+  def act
+    puts "There is no \"#{@entity.name}\" to attack here."
+  end
+end
+
+class NullDrop
+  def act
+    puts "You aren't holding any \"#{@entity.name}\"."
+  end
+end
+
+class NullGrab
+  def act
+    puts "There is no \"#{@entity.name}\" to grab here."
+  end
+end
+
+class NullLook
+  def act
+    puts "You don't see any \"#{@entity.name}\" here."
+  end
+end
+
+class NullPunch
+  def act
+    puts "There is no \"#{@entity.name}\" to punch here."
+  end
+end
+
+class NullStash
+  def act
+    puts "You aren't holding any \"#{@entity.name}\"."
+  end
+end
+
+class NullUnstash
+  def act
+    puts "There is no \"#{@entity.name}\" in your backpack."
   end
 end
 
 ## SPECIAL ACTIONS
-class Halt < Action
-  def act
+class Halt
+  def act(args)
     exit
   end
 end

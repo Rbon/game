@@ -65,11 +65,11 @@ class Commands
 
   def run_command(line)
     targets = {}
-    verb = (@command_ranges[line[0].to_sym] ? line[0].to_sym : :error)
+    verb = line[0].to_sym
     range = @command_ranges[verb] || :error
     subject =  subjectify(line[1], @range_list[range])
     object = objectify(line[2], @range_list[:hands])
-    @player.act(action: verb, subject: subject, object: object)
+    @player.act(action: verb, target: subject, tool: object, actor: @player)
   end
 
   def subjectify(subject, range)
