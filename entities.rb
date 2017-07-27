@@ -2,7 +2,7 @@ require "./actions.rb"
 
 class Entity
   attr_reader :room, :name, :volume
-  attr_accessor :hp
+  attr_accessor :hp, :container, :owner
   def initialize(opts = {})
     @room = opts[:room]
     @room.entity_list.push(self) if @room
@@ -10,15 +10,21 @@ class Entity
     @look_file = opts[:look_file] || "default"
     @hp = 10
     @volume = 1
+    @container = nil
     @owner = nil
     @action_list = {
       attack: ItemCannotAttack,
+      drop: DropReaction,
+      grab: GrabReaction,
       punch: ItemCannotAttack,
       error: BadAction
     }
     @reaction_list = {
       attack: AttackReaction,
-      look: LookReaction
+      drop: DropReaction,
+      grab: GrabReaction,
+      look: LookReaction,
+      punch: PunchReaction
     }
   end
 
@@ -35,19 +41,6 @@ class Entity
       entity: self,
       actor: args[:actor]
     ).act
-  end
-
-  def attack(*args)
-    puts "You cannot attack with the #{@name}."
-  end
-
-  def punch(*args)
-    puts "You cannot punch with the #{@name}."
-  end
-
-  def is_attacked(attacker)
-    puts "You attack the #{@name}."
-    is_damaged(attacker.attacking_with.attack_damage)
   end
 
   def is_damaged(amount)
@@ -70,15 +63,6 @@ class Entity
     @container.entity_list.push(self)
     @container.free_space -= @volume
     puts "You grab the #{@name} with your #{@owner.grabbing_with.name}."
-  end
-
-  def is_looked_at
-    puts "You stare longingly at the #{@name}."
-  end
-
-  def is_punched(puncher)
-    puts "You punch the #{@name} with your #{puncher.attacking_with.name}."
-    is_damaged(puncher.attacking_with.attack_damage)
   end
 
   def is_stashed(actor)
@@ -131,8 +115,8 @@ class Actor < Entity
     @level = 0
     @race = "RACE NOT SET"
     @hp = 10
-    @right_hand = RightHand.new(self)
-    @left_hand = LeftHand.new(self)
+    @right_hand = RightHand.new(owner: self, room: @room)
+    @left_hand = LeftHand.new(owner: self, room: @room)
     @attacking_with = nil
     @grabbing_with = nil
     @volume = 10
@@ -155,22 +139,15 @@ class Player < Actor
     @name = "self"
     @backpack = Backpack.new(self)
     @action_list[:quit] = Halt
-  end
-
-
-  def is_punched(*args)
-    puts "You punch yourself."
+    @reaction_list.update(
+      punch: PunchSelf,
+      look: PlayerLookReaction
+    )
   end
 
   def is_damaged(amount)
     puts "You take #{amount} damage. [#{@hp} -> #{@hp - amount}]"
     @hp -= amount
-  end
-
-  def is_looked_at
-    @left_hand.is_looked_at
-    @right_hand.is_looked_at
-    @backpack.is_looked_at
   end
 end
 
@@ -184,11 +161,8 @@ end
 
 class Weapon < Entity
   def initialize(opts)
-    super(opts)
+    super
     @damage = 2
-  end
-  def attack(target)
-    target.is_attacked(@owner)
   end
 end
 
@@ -262,13 +236,21 @@ class Backpack <  Container
   end
 end
 
-class RightHand < Container
-  attr_reader :owner, :attack_damage
-  def initialize(owner)
-    super({})
+class RightHand < Entity
+  attr_reader :owner, :attack_damage, :entity_list
+  attr_accessor :free_space
+  def initialize(opts)
+    super
     @name = "right hand"
-    @owner = owner
+    @owner = opts[:owner]
     @attack_damage = 1
+    @entity_list = []
+    @free_space = 1
+    @action_list.update(
+      attack: FistAttack,
+      punch: FistAttack,
+      grab: FistGrab
+    )
   end
 
   def is_looked_at

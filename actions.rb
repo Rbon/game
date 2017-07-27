@@ -7,8 +7,38 @@ class Action
 end
 
 class BadAction < Action
-  def act(args)
+  def act
     puts "Unknown action."
+  end
+end
+
+class ActorAttack < Action
+  def act
+    @entity.right_hand.act(
+      action: :attack,
+      subject: @subject,
+      object: @object
+    )
+  end
+end
+
+class ActorDrop < Action
+  def act
+    @entity.right_hand.act(
+      action: :drop,
+      subject: @subject,
+      object: @object
+    )
+  end
+end
+
+class ActorGrab < Action
+  def act
+    @entity.right_hand.act(
+      action: :grab,
+      subject: @subject,
+      object: @object
+    )
   end
 end
 
@@ -21,23 +51,10 @@ class ActorLook < Action
   end
 end
 
-class ActorGrab < Action
-  def act(args)
-    (args[:object] || @entity.right_hand).grab(args[:subject])
-  end
-end
-
 class ActorPunch < Action
-  def act(args)
-    (args[:object] || @entity.right_hand).act(action: :punch, args: args)
-  end
-end
-
-class ActorAttack < Action
   def act
-    puts "ACTOR ATTACKING"
     @entity.right_hand.act(
-      action: :attack,
+      action: :punch,
       subject: @subject,
       object: @object
     )
@@ -46,17 +63,11 @@ end
 
 class WeaponAttack < Action
   def act
-    puts "WEAPON ATTACKING"
+    @entity.owner.attacking_with = @entity
     @subject.react(
       action: :attack,
-      actor: @entity
+      actor: @entity.owner
     )
-  end
-end
-
-class ActorDrop < Action
-  def act(args)
-    targets[:subject].is_dropped
   end
 end
 
@@ -72,28 +83,51 @@ class ActorUnstash < Action
   end
 end
 
-class Halt < Action
-  def act(args)
-    exit
-  end
-end
-
 class ItemCannotAttack < Action
-  def act(args)
+  def act
     puts "You cannot attack with #{@entity.name}."
   end
 end
 
+class FistAttack < Action
+  def act
+    if @entity.entity_list.empty?
+      @entity.owner.attacking_with = @entity
+      @subject.react(
+        action: :punch,
+        actor: @entity.owner
+      )
+    else
+      @entity.owner.attacking_with = @entity.entity_list[0]
+      @entity.entity_list[0].act(
+        action: :attack,
+        subject: @subject
+      )
+    end
+    @entity.owner.attacking_with = nil
+  end
+end
+
+class FistGrab < Action
+  def act
+    if @entity.free_space >= @subject.volume
+      @entity.owner.grabbing_with = @entity
+      @subject.react(
+        action: :grab,
+        actor: @entity.owner
+      )
+      @entity.owner.grabbing_with = nil
+    else
+      puts "The #{target.name} is too big to hold."
+    end
+  end
+end
+
+## REACTIONS
 class Reaction
   def initialize(opts)
     @entity = opts[:entity]
     @actor = opts[:actor]
-  end
-end
-
-class LookReaction < Reaction
-  def act
-    puts "You look longingly at the #{@entity.name}."
   end
 end
 
@@ -103,3 +137,69 @@ class AttackReaction < Reaction
     @entity.is_damaged(@actor.attacking_with.attack_damage)
   end
 end
+
+class DropReaction < Reaction
+  def act
+    @entity.container.entity_list.delete(self)
+    @entity.room.entity_list.push(self)
+    @entity.container.free_space += @entity.volume
+    @entity.container = nil
+    puts "You drop the #{@entity.name} on the floor."
+  end
+end
+
+class GrabReaction < Reaction
+  def act
+    @entity.container = @actor.grabbing_with
+    @entity.owner = @actor
+    @entity.room.entity_list.delete(self)
+    @entity.container.entity_list.push(self)
+    @entity.container.free_space -= @entity.volume
+    puts "You grab the #{@entity.name} with your #{@entity.owner.grabbing_with.name}."
+  end
+end
+
+class LookReaction < Reaction
+  def act
+    puts "You look longingly at the #{@entity.name}."
+  end
+end
+
+class PunchReaction < Reaction
+  def act
+    puts "You punch the #{@entity.name}."
+    @entity.is_damaged(@actor.attacking_with.attack_damage)
+  end
+end
+
+class PunchSelf < Reaction
+  def act
+    puts "You punch yourself."
+  end
+end
+
+class PlayerLookReaction < Reaction
+  def act
+    @entity.left_hand.is_looked_at
+    @entity.right_hand.is_looked_at
+    @entity.backpack.is_looked_at
+  end
+end
+
+class SwordPunchReaction < Reaction
+  def act
+    puts "You punch the sword."
+    puts "The sword takes no damage."
+    puts "You hurt your fist punching a sword."
+    puts "You take 1 damage [#{@actor.hp} -> #{@actor.hp - 1}]"
+    @actor.hp -= 1
+  end
+end
+
+## SPECIAL ACTIONS
+class Halt < Action
+  def act
+    exit
+  end
+end
+
