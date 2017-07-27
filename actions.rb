@@ -200,6 +200,16 @@ class SwordPunchReaction < Reaction
   end
 end
 
+class FistLookReaction < Reaction
+  def act
+    if @entity.entity_list.empty?
+      puts "There is nothing in your #{@entity.name}."
+    else
+      puts "In your right hand, you are holding a #{@entity.entity_list[0].name}"
+    end
+  end
+end
+
 ## SPECIAL ACTIONS
 class Halt < Action
   def act

@@ -252,6 +252,7 @@ class RightHand < Entity
       drop: FistDrop,
       grab: FistGrab
     )
+    @reaction_list[:look] = FistLookReaction
   end
 
   def is_looked_at
@@ -261,36 +262,11 @@ class RightHand < Entity
       puts "In your right hand, you are holding a #{@entity_list[0].name}"
     end
   end
-
-  def attack(target)
-    if @entity_list.empty?
-      @owner.attacking_with = self
-      target.is_punched(@owner)
-    else
-      @owner.attacking_with = @entity_list[0]
-      @entity_list[0].attack(target)
-    end
-    @owner.attacking_with = nil
-  end
-
-  def grab(target)
-    if @free_space >= target.volume
-      @owner.grabbing_with = self
-      target.is_grabbed(@owner)
-      @owner.grabbing_with = nil
-    else
-      puts "The #{target.name} is too big to hold."
-    end
-  end
-
-  def punch(target)
-    attack(target)
-  end
 end
 
 class LeftHand < RightHand
-  def initialize(owner)
-    super(owner)
+  def initialize(opts)
+    super
     @name = "left hand"
   end
 end
