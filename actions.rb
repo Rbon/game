@@ -41,13 +41,20 @@ class Action
   def resolve_sentence(args)
     args[:target] = search_entities(range: @target_list, name: args[:target])
     if args[:prep]
-      args[:tool] = search_entities(range: @tool_list, name: args[:tool])
+      if args[:tool]
+        args[:tool] = search_entities(range: @tool_list, name: args[:tool])
+      else
+        args[:tool] = NoPrepEntity.new
+      end
     end
     args
   end
 end
 
-class BadAction
+class BadAction < Action
+  def initialize(opts)
+  end
+
   def resolve_sentence(args)
   end
 
@@ -229,50 +236,67 @@ class Unstash
 end
 
 ## BAD REACTIONS
-class NullAttack
+class NullAction
+  def resolve_sentence
+  end
+end
+
+class NullAttack < NullAction
   def act(args)
     puts "There is no \"#{args[:target].name}\" to attack here."
   end
 end
 
-class NullDrop
+class NullDrop < NullAction
   def act(args)
     puts "You aren't holding any \"#{args[:target].name}\"."
   end
 end
 
-class NullGrab
+class NullGrab < NullAction
   def act(args)
     puts "There is no \"#{args[:target].name}\" to grab here."
   end
 end
 
-class NullLook
+class NullLook < NullAction
   def act(args)
     puts "You don't see any \"#{args[:target].name}\" here."
   end
 end
 
-class NullPunch
+class NullPunch < NullAction
   def act(args)
     puts "There is no \"#{args[:target].name}\" to punch here."
   end
 end
 
-class NullStash
+class NullStash < NullAction
   def act(args)
     puts "You aren't holding any \"#{args[:target].name}\"."
   end
 end
 
-class NullUnstash
+class NullUnstash < NullAction
   def act(args)
     puts "There is no \"#{args[:target].name}\" in your backpack."
   end
 end
 
+class NotHolding < NullAction
+  def act(args)
+    puts "You're not holding any \"#{args[:tool].name}\"."
+  end
+end
+
+class NoPrepAction < NullAction
+  def act(args)
+    puts "#{args[:action]} #{args[:target].name} #{args[:prep]} what?".capitalize
+  end
+end
+
 ## SPECIAL ACTIONS
-class Halt
+class Halt < Action
   def act(args)
     exit
   end

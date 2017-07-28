@@ -49,6 +49,10 @@ end
 class NullEntity < Entity
   def initialize(opts)
     @name = opts[:name]
+    @action_list = {
+      attack: NotHolding,
+      punch: NotHolding
+    }
     @reaction_list = {
       attack: NullAttack,
       drop: NullDrop,
@@ -57,6 +61,14 @@ class NullEntity < Entity
       punch: NullPunch,
       stash: NullStash,
       unstash: NullUnstash
+    }
+  end
+end
+
+class NoPrepEntity < Entity
+  def initialize
+    @action_list = {
+      attack: NoPrepAction
     }
   end
 end
@@ -106,7 +118,7 @@ class Player < Actor
 
   def act(args)
     list = args[:list] || @action_list
-    action = (list[args[:action]] || BadAction).new
+    action = (list[args[:action]] || BadAction).new(actor: self)
     action.resolve_sentence(args)
     action.act(args)
   end
