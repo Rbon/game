@@ -48,6 +48,9 @@ class Action
 end
 
 class BadAction
+  def resolve_sentence(args)
+  end
+
   def act(args)
     puts "Unknown action: #{args[:action]}"
   end
@@ -227,44 +230,44 @@ end
 
 ## BAD REACTIONS
 class NullAttack
-  def act
-    puts "There is no \"#{@entity.name}\" to attack here."
+  def act(args)
+    puts "There is no \"#{args[:target].name}\" to attack here."
   end
 end
 
 class NullDrop
-  def act
-    puts "You aren't holding any \"#{@entity.name}\"."
+  def act(args)
+    puts "You aren't holding any \"#{args[:target].name}\"."
   end
 end
 
 class NullGrab
-  def act
-    puts "There is no \"#{@entity.name}\" to grab here."
+  def act(args)
+    puts "There is no \"#{args[:target].name}\" to grab here."
   end
 end
 
 class NullLook
-  def act
-    puts "You don't see any \"#{@entity.name}\" here."
+  def act(args)
+    puts "You don't see any \"#{args[:target].name}\" here."
   end
 end
 
 class NullPunch
-  def act
-    puts "There is no \"#{@entity.name}\" to punch here."
+  def act(args)
+    puts "There is no \"#{args[:target].name}\" to punch here."
   end
 end
 
 class NullStash
-  def act
-    puts "You aren't holding any \"#{@entity.name}\"."
+  def act(args)
+    puts "You aren't holding any \"#{args[:target].name}\"."
   end
 end
 
 class NullUnstash
-  def act
-    puts "There is no \"#{@entity.name}\" in your backpack."
+  def act(args)
+    puts "There is no \"#{args[:target].name}\" in your backpack."
   end
 end
 

@@ -48,6 +48,7 @@ end
 
 class NullEntity < Entity
   def initialize(opts)
+    @name = opts[:name]
     @reaction_list = {
       attack: NullAttack,
       drop: NullDrop,
@@ -105,7 +106,7 @@ class Player < Actor
 
   def act(args)
     list = args[:list] || @action_list
-    action = (list[args[:action]] || BadAction).new(actor: self)
+    action = (list[args[:action]] || BadAction).new
     action.resolve_sentence(args)
     action.act(args)
   end
