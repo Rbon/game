@@ -46,7 +46,7 @@ class Entity
   end
 end
 
-class BadEntity < Entity
+class NullEntity < Entity
   def initialize(opts)
     @reaction_list = {
       attack: NullAttack,
@@ -74,10 +74,10 @@ class Actor < Entity
     @volume = 10
     @action_list.update(
       look: PassToTarget,
-      grab: PassToHand,
-      attack: PassToHand,
-      drop: PassToHand,
-      punch: PassToHand,
+      grab: PassAttackToHand,
+      attack: PassAttackToHand,
+      drop: PassAttackToHand,
+      punch: PassAttackToHand,
       stash: PassToBackpack,
       unstash: PassToBackpack
     )
@@ -101,6 +101,13 @@ class Player < Actor
       grab: GrabSelf,
       look: LookSelf
     )
+  end
+
+  def act(args)
+    list = args[:list] || @action_list
+    action = (list[args[:action]] || BadAction).new(actor: self)
+    action.resolve_sentence(args)
+    action.act(args)
   end
 end
 

@@ -1,13 +1,26 @@
-class BadAction
-  def act(args)
-    puts "Unknown action: #{args[:action]}"
+class Action
+  def initialize(opts)
+    @target_range = opts[:target_range].new(actor: opts[:actor]).range
+    @tool_range = opts[:tool_range].new(actor: opts[:actor]).range
+  end
+
+  def search_range(args)
+    args[:range].flatten.each { |item| return item if item.name == args[:name]}
+    NullEntity.new(name: args[:name])
+  end
+
+  def resolve_sentence(args)
+    args[:target] = search_range(range: @target_range, name: args[:target])
+    if args[:prep]
+      args[:tool] = search_range(range: @tool_range, name: args[:tool])
+    end
+    args
   end
 end
 
-class PassToHand
+class BadAction
   def act(args)
-    args[:tool] ||= args[:actor].right_hand
-    args[:tool].act(args)
+    puts "Unknown action: #{args[:action]}"
   end
 end
 
@@ -35,7 +48,37 @@ class FistAttack
   end
 end
 
-class Attack
+class Range
+  attr_reader :range
+  def initialize(opts)
+    @range = [
+      opts[:actor].room.entity_list,
+      opts[:actor].right_hand.entity_list,
+      opts[:actor].left_hand.entity_list
+    ]
+  end
+end
+
+class ToolRange < Range
+  def initialize(opts)
+    @range = [
+      opts[:actor].right_hand,
+      opts[:actor].right_hand.entity_list,
+      opts[:actor].left_hand,
+      opts[:actor].left_hand.entity_list
+    ]
+  end
+end
+
+class Attack < Action
+  def initialize(opts)
+    super(
+      actor: opts[:actor],
+      target_range: Range,
+      tool_range: ToolRange
+    )
+  end
+
   def act(args)
     puts "You attack the #{args[:target].name} with your #{args[:tool].name}."
     args.update(
@@ -43,6 +86,13 @@ class Attack
       amount: args[:tool].damage
     )
     args[:target].react(args)
+  end
+end
+
+class PassAttackToHand < Attack
+  def act(args)
+    args[:tool] ||= args[:actor].right_hand
+    args[:tool].act(args)
   end
 end
 
@@ -91,6 +141,10 @@ class GrabSelf
 end
 
 class Look
+  def initialize(opts)
+    @target_range = Range.new(opts).range
+  end
+
   def act(args)
     puts "It's a #{args[:target].name}."
   end

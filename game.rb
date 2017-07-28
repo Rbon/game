@@ -12,9 +12,10 @@ class Main
   def run
     loop do
       puts
-      command = @commands.parse
-      @commands.run_command(command)
-      # @enemy.attack(@player)
+      print " > "
+      line = Grammar.new.parse(line: gets.strip.chomp)
+      line[:actor] = @player
+      @player.act(line)
     end
   end
 end
@@ -64,7 +65,6 @@ class Commands
   end
 
   def run_command(line)
-    targets = {}
     verb = line[0].to_sym
     range = @command_ranges[verb] || :error
     subject =  subjectify(line[1], @range_list[range])
@@ -88,6 +88,34 @@ class Commands
     else
       false
     end
+  end
+end
+
+class Grammar
+  def initialize
+    @preposition_list = ["on", "in", "with", "from"]
+  end
+
+  def parse(args)
+    output = {}
+    target = []
+    line = args[:line].split
+    output[:action] = line.shift.to_sym
+    output[:prep] = nil
+    line.count.times do
+      word = line.shift
+      if @preposition_list.include?(word)
+        output[:prep] = word
+        break
+      else
+        target.push(word)
+      end
+    end
+    target = target.join(" ")
+    tool = line.join(" ")
+    output[:target] = (target.empty? ? nil : target)
+    output[:tool] = (tool.empty? ? nil : tool)
+    output
   end
 end
 
