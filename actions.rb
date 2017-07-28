@@ -1,18 +1,47 @@
-class Action
-  def initialize(opts)
-    @target_range = opts[:target_range].new(actor: opts[:actor]).range
-    @tool_range = opts[:tool_range].new(actor: opts[:actor]).range
+module Target
+  class Target
+    def initialize(opts)
+      @actor = opts[:actor]
+    end
   end
 
-  def search_range(args)
+  class Everything < Target
+    def list
+      [
+        @actor.room.entity_list,
+        @actor.right_hand.entity_list,
+        @actor.left_hand.entity_list
+      ]
+    end
+  end
+
+  class Tool < Target
+    def list
+      [
+        @actor.right_hand,
+        @actor.right_hand.entity_list,
+        @actor.left_hand,
+        @actor.left_hand.entity_list
+      ]
+    end
+  end
+end
+
+class Action
+  def initialize(opts)
+    @target_list = opts[:target_list].new(actor: opts[:actor]).list
+    @tool_list = opts[:tool_list].new(actor: opts[:actor]).list
+  end
+
+  def search_entities(args)
     args[:range].flatten.each { |item| return item if item.name == args[:name]}
     NullEntity.new(name: args[:name])
   end
 
   def resolve_sentence(args)
-    args[:target] = search_range(range: @target_range, name: args[:target])
+    args[:target] = search_entities(range: @target_list, name: args[:target])
     if args[:prep]
-      args[:tool] = search_range(range: @tool_range, name: args[:tool])
+      args[:tool] = search_entities(range: @tool_list, name: args[:tool])
     end
     args
   end
@@ -48,34 +77,12 @@ class FistAttack
   end
 end
 
-class Range
-  attr_reader :range
-  def initialize(opts)
-    @range = [
-      opts[:actor].room.entity_list,
-      opts[:actor].right_hand.entity_list,
-      opts[:actor].left_hand.entity_list
-    ]
-  end
-end
-
-class ToolRange < Range
-  def initialize(opts)
-    @range = [
-      opts[:actor].right_hand,
-      opts[:actor].right_hand.entity_list,
-      opts[:actor].left_hand,
-      opts[:actor].left_hand.entity_list
-    ]
-  end
-end
-
 class Attack < Action
   def initialize(opts)
     super(
       actor: opts[:actor],
-      target_range: Range,
-      tool_range: ToolRange
+      target_list: Target::Everything,
+      tool_list: Target::Tool
     )
   end
 
