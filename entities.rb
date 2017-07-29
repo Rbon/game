@@ -29,14 +29,9 @@ class Entity
   end
 
   def act(args)
-    puts "ACTING"
-    puts "ACTOR: #{args[:actor]}"
     list = args[:list] || @action_list
-    puts "ACTION: #{args[:action]}"
-    puts "ACTION: #{(list[args[:action]] || BadAction)}"
-    puts
-    action = list[args[:action]].new
-    action.act(args)
+    action = list[args[:action]].new(args)
+    action.act
   end
 
   def react(args)
@@ -129,7 +124,7 @@ class Player < Actor
     @name = "self"
     @backpack = Backpack.new(owner: self, room: @room)
     @action_list.update(
-      look: Look,
+      look: PlayerLook,
       quit: Halt
     )
     @reaction_list.update(
@@ -141,14 +136,10 @@ class Player < Actor
   end
 
   def act(args)
-    puts "ACTING"
-    puts "ACTOR: #{args[:actor]}"
     list = args[:list] || @action_list
-    puts "ACTION: #{(list[args[:action]] || BadAction)}"
-    puts
-    action = (list[args[:action]] || BadAction).new(actor: self)
+    action = (list[args[:action]] || BadAction).new(args)
     action.resolve_sentence(args)
-    action.act(args)
+    action.act
   end
 end
 
@@ -222,13 +213,14 @@ class LeftHand < RightHand
   end
 end
 
-class Room
+class Room < Entity
   attr_accessor :entity_list, :name
 
   def initialize(opts)
     @name = "room"
     @entity_list = []
     @look_file = "look_text/" + opts[:look_file]
+    @reaction_list = {look: LookRoom}
   end
 end
 

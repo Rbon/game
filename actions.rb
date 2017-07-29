@@ -36,7 +36,13 @@ module Target
 end
 
 class Action
-  def initialize
+  def initialize(opts)
+    @actor = opts[:actor]
+    @action = opts[:action]
+    @target = opts[:target]
+    @prep = opts[:prep]
+    @tool = opts[:tool]
+    @damage = opts[:damage]
     @target_list = Target::Room
     @tool_list = Target::Tool
   end
@@ -47,263 +53,268 @@ class Action
   end
 
   def resolve_sentence(args)
-    if args[:target]
-      args[:target] = search_entities(
-        range: @target_list.new(actor: args[:actor]).list, name: args[:target]
+    if @target
+      @target = search_entities(
+        range: @target_list.new(actor: @actor).list,
+        name: @target
       )
     else
-      args[:target] = NoTargetEntity.new
+      @target = NoTargetEntity.new
     end
-    if args[:prep]
-      if args[:tool]
-        args[:tool] = search_entities(
-          range: @tool_list.new(actor: args[:actor]).list, name: args[:tool]
+    if @prep
+      if @tool
+        @tool = search_entities(
+          range: @tool_list.new(actor: @actor).list,
+          name: @tool
         )
       else
-        args[:tool] = NoPrepEntity.new
+        @tool = NoPrepEntity.new
       end
     end
     args
   end
+
+  def state
+    {
+      actor: @actor,
+      action: @action,
+      target: @target,
+      prep: @prep,
+      tool: @tool,
+      damage: @damage
+    }
+  end
 end
 
 class BadAction < Action
-  def initialize(opts)
-  end
-
-  def resolve_sentence(args)
-  end
-
-  def act(args)
-    puts "Unknown action: #{args[:action]}"
+  def act
+    puts "Unknown action: #{@action}"
   end
 end
 
-class PassToTarget
-  def act(args)
-    args[:target].react(args)
+class PassToTarget < Action
+  def act
+    @target.react(state)
   end
 end
 
-class PassToBackpack
-  def act(args)
-    args[:tool] = args[:actor].backpack
-    args[:tool].act(args)
+class PassToBackpack < Action
+  def act
+    @tool = @actor.backpack
+    @tool.act(state)
   end
 end
 
 class FistAttack < Action
-  def act(args)
-    if args[:tool].entity_list.empty?
-      args[:action] = :punch
+  def act
+    if @tool.entity_list.empty?
+      @action = :punch
     else
-      args[:tool] = args[:tool].entity_list[0]
+      @tool = @tool.entity_list[0]
     end
-    args[:target].react(args)
+    @target.react(state)
   end
 end
 
 class Attack < Action
   def initialize(opts)
+    super
     @target_list = Target::Room
     @tool_list = Target::Tool
   end
 
-  def act(args)
-    puts "You attack the #{args[:target].name} with your #{args[:tool].name}."
-    args.update(
-      action: :damage,
-      amount: args[:tool].damage
-    )
-    args[:target].react(args)
+  def act
+    puts "You attack the #{@target.name} with your #{@tool.name}."
+    @action = :damage
+    @damage = @tool.damage
+    @target.react(state)
   end
 end
 
 class PassAttackToHand < Attack
-  def act(args)
-    args[:tool] ||= args[:actor].right_hand
-    args[:tool].act(args)
+  def act
+    @tool ||= @actor.right_hand
+    @tool.act(state)
   end
 end
 
-class AttackFail
+class AttackFail < Action
   def act
     puts "You cannot attack with #{@entity.name}."
   end
 end
 
 class Damage < Action
-  def act(args)
-    puts(
-      "The #{args[:target].name} takes #{args[:amount]} damage. " +
-      "[#{args[:target].hp} -> #{args[:target].hp - args[:amount]}]"
-    )
-    args[:target].hp -= args[:amount]
-  end
-end
-
-class DamagePlayer
   def act
-    puts "You take #{@amount} damage. [#{@entity.hp} -> #{@entity.hp - @amount}]"
-    @entity.hp -= @amount
+    puts(
+      "The #{@target.name} takes #{@damage} damage. " +
+      "[#{@target.hp} -> #{@target.hp - @damage}]"
+    )
+    @target.hp -= @damage
   end
 end
 
-class Drop
-  def act(args)
-    args[:tool].entity_list.delete(args[:target])
-    args[:actor].room.entity_list.push(args[:target])
-    puts "You drop the #{args[:target].name} on the floor."
+class DamagePlayer < Action
+  def act
+    puts "You take #{@amount} damage. [#{@actor.hp} -> #{@actor.hp - @damage}]"
+    @actor.hp -= @damage
   end
 end
 
-class Grab
-  def act(args)
-    args[:target].container = args[:tool]
-    puts "You grab the #{args[:target].name} with your #{args[:tool].name}."
+class Drop < Action
+  def act
+    @target.container = @target.room
+    puts "You drop the #{@target.name} on the floor."
   end
 end
 
-class GrabSelf
+class Grab < Action
+  def act
+    @target.container = @tool
+    puts "You grab the #{@target.name} with your #{@tool.name}."
+  end
+end
+
+class GrabSelf < Action
   def act
     puts "You take firm hold of yourself."
   end
 end
 
-class Look < Action
+class PlayerLook < Action
   def initialize(opts)
+    super
     @target_list = Target::Room
   end
 
-  def act(args)
-    if args[:target].class == NoTargetEntity
-      args[:target] = args[:actor].room
+  def act
+    if @target.class == NoTargetEntity
+      @target = @actor.room
     end
-    puts args[:target]
-    puts "It's a #{args[:target].name}."
+    @target.react(state)
   end
 end
 
-class LookFist
-  def act(args)
-    if args[:target].entity_list.empty?
-      puts "There is nothing in your #{args[:target].name}."
+class LookFist < Action
+  def act
+    if @target.entity_list.empty?
+      puts "There is nothing in your #{@target.name}."
     else
-      puts "In your right hand, you are holding a #{args[:target].entity_list[0].name}."
+      puts "In your right hand, you are holding a #{@target.entity_list[0].name}."
     end
   end
 end
 
-class LookSelf
-  def act(args)
+class Look < Action
+  def act
+    puts "It's a #{@target.name}"
+  end
+end
+
+class LookSelf < Action
+  def act
     [
-      args[:actor].left_hand,
-      args[:actor].right_hand,
-      args[:actor].backpack
+      @actor.left_hand,
+      @actor.right_hand,
+      @actor.backpack
     ].each do |target|
-      args[:target] = target
-      target.react(args)
+      @target = target
+      target.react(state)
+    end
+  end
+end
+
+class LookRoom < Action
+  def act
+    puts "This is a room."
+    @target.entity_list.each do |entity|
+      puts "  There is a #{entity.name} here."
     end
   end
 end
 
 class Punch < Action
-  def act(args)
-    puts "You punch the #{args[:target].name} with your #{args[:tool].name}."
-    args.update(
-      action: :damage,
-      amount: args[:tool].damage
-    )
-    args[:target].react(args)
+  def act
+    puts "You punch the #{@target.name} with your #{@tool.name}."
+    @action = :damage
+    @damage = @tool.damage
+    @target.react(state)
   end
 end
 
-class PunchSelf
-  def act(args)
+class PunchSelf < Action
+  def act
     puts "You punch yourself."
-    args[:action] = :damage
-    args[:actor].react(args)
+    @action = :damage
+    @actor.react(state)
   end
 end
 
-class PunchSword
+class PunchSword < Action
   def act
     puts "You punch the sword."
     puts "The sword takes no damage."
     puts "You hurt your fist punching a sword."
-    @actor.react(
-      action: :damage,
-      amount: 1
-    )
+    @action = :damage
+    @damage = 1
+    @actor.react(state)
   end
 end
 
-class Stash
-  def act(args)
-    puts "You stash your #{args[:target]} in your #{args[:tool]}."
-    args[:target].container = args[:tool]
+class Stash < Action
+  def act
+    puts "You stash your #{@target.name} in your #{@tool.name}."
+    @target.container = @tool
   end
 end
 
-class Unstash
-  def act(args)
-    puts "You grab your #{args[:target].name} from your backpack."
-    args[:target].container = args[:actor].right_hand
+class Unstash < Action
+  def act
+    puts "You grab your #{@target.name} from your backpack."
+    @target.container = @actor.right_hand
   end
 end
 
 ## BAD REACTIONS
-class NullAction < Action
-  def resolve_sentence
-  end
-
-end
-
-class NullDrop < NullAction
-  def act(args)
-    puts "You aren't holding any \"#{args[:target].name}\"."
+class BadTargetAction < Action
+  def act
+    puts "There is no \"%s\" to %s here." % [@target.name, @action]
   end
 end
 
-class BadTargetAction
-  def act(args)
-    puts "There is no \"%s\" to %s here." % [args[:target].name, args[:action]]
+class DontSeeTarget < Action
+  def act
+    puts "You don't see any \"#{@target.name}\" here."
   end
 end
 
-class DontSeeTarget < NullAction
-  def act(args)
-    puts "You don't see any \"#{args[:target].name}\" here."
+class NotInBackpack < Action
+  def act
+    puts "There is no \"#{@target.name}\" in your backpack."
   end
 end
 
-class NotInBackpack < NullAction
-  def act(args)
-    puts "There is no \"#{args[:target].name}\" in your backpack."
-  end
-end
-
-class NotHolding < NullAction
-  def act(args)
-    puts "You're not holding any \"#{args[:tool].name}\"."
+class NotHolding < Action
+  def act
+    puts "You're not holding any \"#{@tool.name}\"."
   end
 end
 
 class NoPrepAction < Action
-  def act(args)
-    puts "#{args[:action]} #{args[:target].name} #{args[:prep]} what?".capitalize
+  def act
+    puts "#{@action} #{@target} #{@prep} what?".capitalize
   end
 end
 
 class NoTargetAction < Action
-  def act(args)
-    puts "#{args[:action]} what?".capitalize
+  def act
+    puts "#{@action} what?".capitalize
   end
 end
 
 ## SPECIAL ACTIONS
 class Halt < Action
-  def act(args)
+  def act
     exit
   end
 end
