@@ -35,7 +35,7 @@ class Entity
     puts "ACTION: #{args[:action]}"
     puts "ACTION: #{(list[args[:action]] || BadAction)}"
     puts
-    action = list[args[:action]].new(actor: args[:actor])
+    action = list[args[:action]].new
     action.act(args)
   end
 
@@ -59,13 +59,13 @@ class NullEntity < Entity
       punch: NotHolding
     }
     @reaction_list = {
-      attack: NullAttack,
-      drop: NullDrop,
-      grab: NullGrab,
-      look: NullLook,
-      punch: NullPunch,
-      stash: NullStash,
-      unstash: NullUnstash
+      attack: BadTargetAction,
+      drop: BadTargetAction,
+      grab: BadTargetAction,
+      look: DontSeeTarget,
+      punch: BadTargetAction,
+      stash: NotHolding,
+      unstash: NotInBackpack
     }
   end
 end
@@ -229,15 +229,6 @@ class Room
     @name = "room"
     @entity_list = []
     @look_file = "look_text/" + opts[:look_file]
-  end
-
-  def is_looked_at
-    output = File.read(@look_file)
-    @entity_list.each do |entity|
-      next if entity.class == Player
-      output += "\nThere is a #{entity.name} here."
-    end
-    puts output
   end
 end
 

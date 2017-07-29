@@ -36,9 +36,9 @@ module Target
 end
 
 class Action
-  def initialize(opts = {})
-    @target_list = (opts[:target_list] || Target::Room).new(actor: opts[:actor]).list
-    @tool_list = (opts[:tool_list] || Target::Tool).new(actor: opts[:actor]).list
+  def initialize
+    @target_list = Target::Room
+    @tool_list = Target::Tool
   end
 
   def search_entities(args)
@@ -48,13 +48,17 @@ class Action
 
   def resolve_sentence(args)
     if args[:target]
-      args[:target] = search_entities(range: @target_list, name: args[:target])
+      args[:target] = search_entities(
+        range: @target_list.new(actor: args[:actor]).list, name: args[:target]
+      )
     else
       args[:target] = NoTargetEntity.new
     end
     if args[:prep]
       if args[:tool]
-        args[:tool] = search_entities(range: @tool_list, name: args[:tool])
+        args[:tool] = search_entities(
+          range: @tool_list.new(actor: args[:actor]).list, name: args[:tool]
+        )
       else
         args[:tool] = NoPrepEntity.new
       end
@@ -101,11 +105,8 @@ end
 
 class Attack < Action
   def initialize(opts)
-    super(
-      actor: opts[:actor],
-      target_list: Target::Room,
-      tool_list: Target::Tool
-    )
+    @target_list = Target::Room
+    @tool_list = Target::Tool
   end
 
   def act(args)
@@ -171,14 +172,13 @@ end
 
 class Look < Action
   def initialize(opts)
-    super(
-      actor: opts[:actor],
-      target_list: Target::Room
-    )
+    @target_list = Target::Room
   end
 
   def act(args)
-    args[:target] ||= args[:actor].room
+    if args[:target].class == NoTargetEntity
+      args[:target] = args[:actor].room
+    end
     puts args[:target]
     puts "It's a #{args[:target].name}."
   end
@@ -256,12 +256,7 @@ end
 class NullAction < Action
   def resolve_sentence
   end
-end
 
-class NullAttack < NullAction
-  def act(args)
-    puts "There is no \"#{args[:target].name}\" to attack here."
-  end
 end
 
 class NullDrop < NullAction
@@ -270,31 +265,19 @@ class NullDrop < NullAction
   end
 end
 
-class NullGrab < NullAction
+class BadTargetAction
   def act(args)
-    puts "There is no \"#{args[:target].name}\" to grab here."
+    puts "There is no \"%s\" to %s here." % [args[:target].name, args[:action]]
   end
 end
 
-class NullLook < NullAction
+class DontSeeTarget < NullAction
   def act(args)
     puts "You don't see any \"#{args[:target].name}\" here."
   end
 end
 
-class NullPunch < NullAction
-  def act(args)
-    puts "There is no \"#{args[:target].name}\" to punch here."
-  end
-end
-
-class NullStash < NullAction
-  def act(args)
-    puts "You aren't holding any \"#{args[:target].name}\"."
-  end
-end
-
-class NullUnstash < NullAction
+class NotInBackpack < NullAction
   def act(args)
     puts "There is no \"#{args[:target].name}\" in your backpack."
   end
