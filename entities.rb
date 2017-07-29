@@ -29,9 +29,14 @@ class Entity
   end
 
   def act(args)
+    puts "ACTING"
+    puts "ACTOR: #{args[:actor]}"
     list = args[:list] || @action_list
-    args[:entity] = self
-    (list[args[:action]] || BadAction).new.act(args)
+    puts "ACTION: #{args[:action]}"
+    puts "ACTION: #{(list[args[:action]] || BadAction)}"
+    puts
+    action = list[args[:action]].new(actor: args[:actor])
+    action.act(args)
   end
 
   def react(args)
@@ -68,7 +73,26 @@ end
 class NoPrepEntity < Entity
   def initialize
     @action_list = {
-      attack: NoPrepAction
+      attack: NoPrepAction,
+      drop: NoPrepAction,
+      grab: NoPrepAction,
+      look: NoPrepAction,
+      stash: NoPrepAction,
+      unstash: NoPrepAction
+    }
+  end
+end
+
+class NoTargetEntity < Entity
+  def initialize
+    @action_list = {
+      attack: NoTargetAction,
+      punch: NoTargetAction,
+      drop: NoTargetAction,
+      grab: NoTargetAction,
+      look: Look,
+      stash: NoTargetAction,
+      unstash: NoTargetAction
     }
   end
 end
@@ -86,7 +110,6 @@ class Actor < Entity
     @grabbing_with = nil
     @volume = 10
     @action_list.update(
-      look: PassToTarget,
       grab: PassAttackToHand,
       attack: PassAttackToHand,
       drop: PassAttackToHand,
@@ -106,7 +129,8 @@ class Player < Actor
     @name = "self"
     @backpack = Backpack.new(owner: self, room: @room)
     @action_list.update(
-      quit: Halt,
+      look: Look,
+      quit: Halt
     )
     @reaction_list.update(
       punch: PunchSelf,
@@ -117,7 +141,11 @@ class Player < Actor
   end
 
   def act(args)
+    puts "ACTING"
+    puts "ACTOR: #{args[:actor]}"
     list = args[:list] || @action_list
+    puts "ACTION: #{(list[args[:action]] || BadAction)}"
+    puts
     action = (list[args[:action]] || BadAction).new(actor: self)
     action.resolve_sentence(args)
     action.act(args)

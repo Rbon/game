@@ -25,12 +25,20 @@ module Target
       ]
     end
   end
+
+  class Room < Target
+    def list
+      [
+        @actor.room.entity_list
+      ]
+    end
+  end
 end
 
 class Action
-  def initialize(opts)
-    @target_list = opts[:target_list].new(actor: opts[:actor]).list
-    @tool_list = opts[:tool_list].new(actor: opts[:actor]).list
+  def initialize(opts = {})
+    @target_list = (opts[:target_list] || Target::Room).new(actor: opts[:actor]).list
+    @tool_list = (opts[:tool_list] || Target::Tool).new(actor: opts[:actor]).list
   end
 
   def search_entities(args)
@@ -39,7 +47,11 @@ class Action
   end
 
   def resolve_sentence(args)
-    args[:target] = search_entities(range: @target_list, name: args[:target])
+    if args[:target]
+      args[:target] = search_entities(range: @target_list, name: args[:target])
+    else
+      args[:target] = NoTargetEntity.new
+    end
     if args[:prep]
       if args[:tool]
         args[:tool] = search_entities(range: @tool_list, name: args[:tool])
@@ -76,7 +88,7 @@ class PassToBackpack
   end
 end
 
-class FistAttack
+class FistAttack < Action
   def act(args)
     if args[:tool].entity_list.empty?
       args[:action] = :punch
@@ -91,7 +103,7 @@ class Attack < Action
   def initialize(opts)
     super(
       actor: opts[:actor],
-      target_list: Target::Everything,
+      target_list: Target::Room,
       tool_list: Target::Tool
     )
   end
@@ -119,7 +131,7 @@ class AttackFail
   end
 end
 
-class Damage
+class Damage < Action
   def act(args)
     puts(
       "The #{args[:target].name} takes #{args[:amount]} damage. " +
@@ -157,12 +169,17 @@ class GrabSelf
   end
 end
 
-class Look
+class Look < Action
   def initialize(opts)
-    @target_range = Range.new(opts).range
+    super(
+      actor: opts[:actor],
+      target_list: Target::Room
+    )
   end
 
   def act(args)
+    args[:target] ||= args[:actor].room
+    puts args[:target]
     puts "It's a #{args[:target].name}."
   end
 end
@@ -190,7 +207,7 @@ class LookSelf
   end
 end
 
-class Punch
+class Punch < Action
   def act(args)
     puts "You punch the #{args[:target].name} with your #{args[:tool].name}."
     args.update(
@@ -236,7 +253,7 @@ class Unstash
 end
 
 ## BAD REACTIONS
-class NullAction
+class NullAction < Action
   def resolve_sentence
   end
 end
@@ -289,9 +306,15 @@ class NotHolding < NullAction
   end
 end
 
-class NoPrepAction < NullAction
+class NoPrepAction < Action
   def act(args)
     puts "#{args[:action]} #{args[:target].name} #{args[:prep]} what?".capitalize
+  end
+end
+
+class NoTargetAction < Action
+  def act(args)
+    puts "#{args[:action]} what?".capitalize
   end
 end
 
