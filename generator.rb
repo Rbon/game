@@ -4,7 +4,8 @@
 class Generator
   def initialize
     @doorifier = Doorifier.new
-    @grid = Grid.new
+    @dungeon = Dungeon.new
+    @grid = @dungeon.grid
     @populator =  Populator.new
     @snaker = Snaker.new
     @start_point = StartPoint.new
@@ -14,7 +15,7 @@ class Generator
 
   def generate(prng, x, y, min_len, max_len, mid_wid, max_wid)
     room_list = []
-    grid = @grid.grid(x, y)
+    grid = @grid.new(x, y).grid
     @populator.populate(
       prng, room_list, grid, min_len, max_len, mid_wid, max_wid
     )
@@ -159,6 +160,12 @@ class Drawer
   end
 end
 
+class Dungeon
+  def initialize(opts = {})
+
+  end
+end
+
 class Filler
   def fill(grid, x, y, len=0, wid=0)
     x.upto(x + len) { |col| grid[col].fill(:room, y..y+wid) }
@@ -194,8 +201,10 @@ class GetNeighbors
 end
 
 class Grid
-  def grid(x, y)
-    Array.new(x) { Array.new(y) { :empty } }
+  attr_accessor :grid
+
+  def initialize(x, y)
+    @grid = Array.new(x) { Array.new(y) { :empty } }
   end
 end
 
