@@ -8,6 +8,7 @@ module Target
   class Everything < Target
     def list
       [
+        @actor.room,
         @actor.room.entity_list,
         @actor.right_hand.entity_list,
         @actor.left_hand.entity_list
@@ -156,7 +157,7 @@ end
 
 class DamagePlayer < Action
   def act
-    puts "You take #{@amount} damage. [#{@actor.hp} -> #{@actor.hp - @damage}]"
+    puts "You take #{@damage} damage. [#{@actor.hp} -> #{@actor.hp - @damage}]"
     @actor.hp -= @damage
   end
 end
@@ -184,7 +185,7 @@ end
 class PlayerLook < Action
   def initialize(opts)
     super
-    @target_list = Target::Room
+    @target_list = Target::Everything
   end
 
   def act
@@ -246,6 +247,7 @@ class PunchSelf < Action
   def act
     puts "You punch yourself."
     @action = :damage
+    @damage = 1
     @actor.react(state)
   end
 end

@@ -1,9 +1,10 @@
 require "./actions.rb"
 
 class Entity
-  attr_reader :room, :name, :volume
-  attr_accessor :hp, :owner
+  attr_reader :room, :name, :volume, :char
+  attr_accessor :hp, :owner, :pos
   def initialize(opts = {})
+    @pos = opts[:pos]
     @room = opts[:room]
     @container = opts[:container] || @room
     @container.entity_list.push(self)
@@ -93,14 +94,16 @@ class NoTargetEntity < Entity
 end
 
 class Actor < Entity
-  attr_accessor :right_hand, :left_hand, :level, :race
+  attr_accessor :right_hand, :left_hand, :level, :race, :entity_list
   def initialize(opts = {})
     super(opts)
+    @char = "@"
+    @entity_list = []
     @level = 0
     @race = "RACE NOT SET"
     @hp = 10
-    @right_hand = RightHand.new(owner: self, room: @room)
-    @left_hand = LeftHand.new(owner: self, room: @room)
+    @right_hand = RightHand.new(room: @room, container: self)
+    @left_hand = LeftHand.new(room: @room, container: self)
     @attacking_with = nil
     @grabbing_with = nil
     @volume = 10
@@ -122,7 +125,7 @@ class Player < Actor
     @level = 1
     @race = "human"
     @name = "self"
-    @backpack = Backpack.new(owner: self, room: @room)
+    @backpack = Backpack.new(container: self, room: @room)
     @action_list.update(
       look: PlayerLook,
       quit: Halt
