@@ -34,15 +34,11 @@ end
 
 class Checker
   def check(grid, x, y, len, wid)
-    if x < 0
-      x = 0
-    end
-    if y < 0
-      y = 0
-    end
-    for col in x..x+len
+    x = [x, 0].max
+    y = [y, 0].max
+    x.upto(x + len) do |col|
       if grid[col]
-        for row in y..y+wid
+        y.upto(y + len) do |row|
           if grid[col][row] == :room
             return true
           end
@@ -165,9 +161,7 @@ end
 
 class Filler
   def fill(grid, x, y, len=0, wid=0)
-    for col in x..x+len
-      grid[col].fill(:room, y..y+wid)
-    end
+    x.upto(x + len) { |col| grid[col].fill(:room, y..y+wid) }
   end
 end
 
@@ -191,19 +185,11 @@ end
 class GetNeighbors
   def get_neighbors(grid, x, y)
     output = [nil, nil, nil, nil]
-    if x > 0
-      output[0] = grid[x-1][y]
-    end
-    if x < grid.length-1
-      output[1] = grid[x+1][y]
-    end
-    if y > 0
-      output[2] = grid[x][y-1]
-    end
-    if y < grid.length-1
-      output[3] = grid[x][y+1]
-    end
-    return output
+    output[0] = grid[x-1][y] if x > 0
+    output[1] = grid[x+1][y] if x < grid.length-1
+    output[2] = grid[x][y-1] if y > 0
+    output[3] = grid[x][y+1] if y < grid.length-1
+    output
   end
 end
 
@@ -240,7 +226,7 @@ end
 
 class Roomer
   def room(x, y, len, wid)
-    return {:left => x, :top => y, :right => x+len, :bottom => y+wid}
+    {:left => x, :top => y, :right => x+len, :bottom => y+wid}
   end
 end
 
