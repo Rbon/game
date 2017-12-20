@@ -2,133 +2,30 @@
 ## "The connected region is now part of the main one. Unify it."
 
 class Generator
-  def initialize
-    @doorifier = Doorifier.new
-    @dungeon = Dungeon.new
-    @grid = @dungeon.grid
-    @populator =  Populator.new
-    @snaker = Snaker.new
-    @start_point = StartPoint.new
-    @undoorifier = Undoorifier.new
-    @unsnaker = Unsnaker.new
-  end
-
-  def generate(prng, x, y, min_len, max_len, mid_wid, max_wid)
-    room_list = []
-    grid = @grid.new(x, y).grid
-    @populator.populate(
-      prng, room_list, grid, min_len, max_len, mid_wid, max_wid
+  def initialize(opts)
+    @grid = Grid.new(opts[:grid_length], opts[:grid_height])
+    puts opts[:prng].inspect
+    @area_gen = AreaGen.new(
+      prng: opts[:prng],
+      grid_length: opts[:grid_length],
+      grid_height: opts[:grid_height],
+      min_length: opts[:min_room_length],
+      max_length: opts[:max_room_length],
+      min_height: opts[:min_room_height],
+      max_height: opts[:max_room_height]
     )
-
-    coords = @start_point.find(grid, :empty)
-    while coords
-      @snaker.snake(prng, grid, coords[0], coords[1])
-      coords = @start_point.find(grid, :empty)
-    end
-
-    @doorifier.doorify(grid)
-    @undoorifier.undoorify(prng, grid, room_list)
-    @unsnaker.unsnake(grid)
-    grid
+    @drawer = Drawer.new
+    @populator = Populator.new(area_gen: @area_gen)
   end
-end
 
-class Checker
-  def check(grid, x, y, len, wid)
-    x = [x, 0].max
-    y = [y, 0].max
-    x.upto(x + len) do |col|
-      if grid[col]
-        y.upto(y + len) do |row|
-          if grid[col][row] == :room
-            return true
-          end
-        end
-      end
-    end
-    return false
-  end
-end
-
-class DeadEnd
-  def dead_end?(grid, x, y)
-    if grid[x]
-      if grid[x][y] == :corridor
-        neighbor_list = GetNeighbors.new.get_neighbors(grid, x, y)
-        empty_neighbors = 0
-        for neighbor in neighbor_list
-          case neighbor
-          when :empty, nil
-            empty_neighbors += 1
-          end
-        end
-        if empty_neighbors > 2
-          return true
-        end
-      end
-    end
-    return false
-  end
-end
-
-class DoorGetter
-  def get_doors(grid, room)
-    output = []
-    for col in room[:left]..room[:right]
-      if grid[col][room[:top]-1] == :connector
-        output.push([col, room[:top]-1])
-        # grid[col][room[:top]-1] = :debug
-      end
-      if grid[col][room[:bottom]+1] == :connector
-        output.push([col, room[:bottom]+1])
-        # grid[col][room[:bottom]+1] = :debug
-      end
-    end
-    for row in room[:top]..room[:bottom]
-      if grid[room[:left]-1]
-        if grid[room[:left]-1][row] == :connector
-          output.push([room[:left]-1, row])
-          # grid[room[:left]-1][row] = :debug
-        end
-      end
-      if grid[room[:right]+1]
-        if grid[room[:right]+1][row] == :connector
-          output.push([room[:right]+1, row])
-          # grid[room[:right]+1][row] = :debug
-        end
-      end
-    end
-    return output
-  end
-end
-
-class Doorifier
-  def doorify(grid)
-    x = -1
-    for col in grid
-      x += 1
-      y = -1
-      for cell in col
-        y += 1
-        if cell == :empty
-          neighbors = GetNeighbors.new.get_neighbors(grid, x, y)
-          room_connection = false
-          connections = 0
-          for item in neighbors
-            case item
-            when :room
-              room_connection = true
-              connections += 1
-            when :corridor
-              connections += 1
-            end
-          end
-          if connections == 2 and room_connection == true
-            grid[x][y] = :connector
-          end
-        end
-      end
-    end
+  def generate
+    room_list = []
+    puts "GRID LENGTH #{@grid.length}"
+    puts "GRID HEIGHT #{@grid.height}"
+    puts
+    area = @area_gen.run
+    @grid.set(:room, *area)
+    puts @drawer.draw(@grid)
   end
 end
 
@@ -139,9 +36,9 @@ class Drawer
     y_max = grid[0].length - 1
     for y in 0..y_max
       for x in 0..x_max
-        case grid[x][y]
+        case grid[x][y].label
         when :empty
-          output << " "
+          output << "-"
         when :room
           output << "0"
         when :corridor
@@ -150,6 +47,8 @@ class Drawer
           output << "."
         when :debug, :connector
           output << "x"
+        else
+          output << "?"
         end
         if x == x_max
           output << "\n"
@@ -160,185 +59,105 @@ class Drawer
   end
 end
 
-class Dungeon
+class Cell
+  attr_reader :pos
+  attr_accessor :label
+
   def initialize(opts = {})
-
-  end
-end
-
-class Filler
-  def fill(grid, x, y, len=0, wid=0)
-    x.upto(x + len) { |col| grid[col].fill(:room, y..y+wid) }
-  end
-end
-
-class FirstDeadEnd
-  def find(grid)
-    x = 0
-    for col in grid
-      y = 0
-      for row in col
-        if DeadEnd.new.dead_end?(grid, x, y)
-          return x, y
-        end
-        y += 1
-      end
-      x += 1
-    end
-  return false
-  end
-end
-
-class GetNeighbors
-  def get_neighbors(grid, x, y)
-    output = [nil, nil, nil, nil]
-    output[0] = grid[x-1][y] if x > 0
-    output[1] = grid[x+1][y] if x < grid.length-1
-    output[2] = grid[x][y-1] if y > 0
-    output[3] = grid[x][y+1] if y < grid.length-1
-    output
+    @label = opts[:label] || :empty
+    @pos = opts[:pos]
   end
 end
 
 class Grid
+  attr_reader :length, :height
   attr_accessor :grid
 
   def initialize(x, y)
-    @grid = Array.new(x) { Array.new(y) { :empty } }
+    @length = x - 1
+    @height = y - 1
+    # @grid = Array.new(x) { Array.new(y) { Cell.new(label: :empty) } }
+    @grid = []
+    x.times do |x_pos|
+      col = []
+      y.times do |y_pos|
+        cell = Cell.new(pos: [x_pos, y_pos])
+        col << cell
+      end
+      @grid << col
+    end
+  end
+
+  def [](key)
+    @grid[key]
+  end
+
+  def set(label, x, y, length=1, height=1)
+    puts "SETTING WITH THESE COORDS"
+    puts "x: #{x}"
+    puts "y: #{y}"
+    puts "length: #{length}"
+    puts "height: #{height}"
+    puts
+    pile = []
+    rows = @grid[x..(x+length-1)]
+    rows.each do |row|
+      cells = row[y..(y+height-1)]
+      pile << cells
+    end
+    pile.flatten.map { |cell| cell.label = label }
+  end
+end
+
+class AreaGen
+  def initialize(opts)
+    @prng = opts[:prng]
+    @grid_length = opts[:grid_length]
+    @grid_height = opts[:grid_height]
+    @min_length = opts[:min_length]
+    @max_length = opts[:max_length]
+    @min_height = opts[:min_height]
+    @max_height = opts[:max_height]
+  end
+
+  def run
+    x = @prng.rand(0..@grid_length - 1)
+    y = @prng.rand(0..@grid_height - 1)
+    length = @prng.rand(@min_length..@max_length)
+    length = [length, (@grid_length - x - 1)].min
+    height = @prng.rand(@min_height..@max_height)
+    height = [height, (@grid_height - y - 1)].min
+    puts "GENERATED THESE COORDS"
+    puts "x: #{x}"
+    puts "y: #{y}"
+    puts "length: #{length}"
+    puts "height: #{height}"
+    puts
+    [x, y, length, height]
   end
 end
 
 class Populator
-  def populate(prng, room_list, grid, min_len, max_len, min_wid, max_wid)
-    x_max = grid.length - 1
-    y_max = grid[0].length - 1
-    fails = 0
+  def initialize(opts)
+    @area_gen = opts[:area_gen]
+  end
 
-    until fails == 100
-      x = prng.rand(1 .. x_max / 2) * 2 - 1
-      y = prng.rand(1 .. y_max / 2) * 2 - 1
-      len = prng.rand((min_len - 1) / 2 .. (max_len - 1) / 2) * 2
-      wid = prng.rand((min_wid - 1) / 2 .. (max_wid - 1) / 2) * 2
-
-      if x+len > x_max or y+len > y_max
-        fails += 1
-      elsif Checker.new.check(grid, x, y, len, wid)
-        fails += 1
-      else
-        Filler.new.fill(grid, x, y, len, wid)
-        room_list.push(Roomer.new.room(x, y, len, wid))
-        fails = 0
-      end
+  def populate(room_list, grid)
+    2.times do
+      area = @area_gen.run
+      puts area.inspect
+      grid.set(:room, *area)
     end
   end
 end
 
-class Roomer
-  def room(x, y, len, wid)
-    {:left => x, :top => y, :right => x+len, :bottom => y+wid}
-  end
-end
-
-class Snaker
-  def snake(prng, grid, x, y)
-    if x < 0
-      return false
-    elsif y < 0
-      return false
-    end
-    if grid[x]
-      if grid[x][y] == :empty
-        grid[x][y] = :corridor
-        order = [1,2,3,4].shuffle!(random: prng)
-        for n in order
-          case n
-          when 1
-            if snake(prng, grid, x+2, y)
-              grid[x+1][y] = :corridor
-            end
-          when 2
-            if snake(prng, grid, x-2, y)
-              grid[x-1][y] = :corridor
-            end
-          when 3
-            if snake(prng, grid, x, y+2)
-              grid[x][y+1] = :corridor
-            end
-            if snake(prng, grid, x, y-2)
-              grid[x][y-1] = :corridor
-            end
-          end
-        end
-        return true
-      end
-    end
-  end
-end
-
-class StartPoint
-  def find(grid, target)
-    x = 1
-    y = 1
-    while y < grid[0].length
-      if grid[x]
-        if grid[x][y] == target
-          return x, y
-        end
-        x += 2
-      else
-        x = 1
-        y += 2
-      end
-    end
-    return false
-  end
-end
-
-class Undoorifier
-  def undoorify(prng, grid, room_list)
-    for room in room_list
-      door_list = DoorGetter.new.get_doors(grid, room).shuffle!(random: prng)
-      first_door = door_list.pop
-      grid[first_door[0]][first_door[1]] = :door
-      for door in door_list
-        case prng.rand(1..50)
-        when 1..49
-          grid[door[0]][door[1]] = :empty
-        else
-          grid[door[0]][door[1]] = :door
-        end
-      end
-    end
-  end
-end
-
-class Unsnaker
-  def unsnake(grid, coords=nil)
-    if coords
-      x = coords[0]
-      y = coords[1]
-      if DeadEnd.new.dead_end?(grid, x, y)
-        grid[x][y] = :empty
-        followups = 0
-        followups += unsnake(grid, [x+1, y])
-        followups += unsnake(grid, [x-1, y])
-        followups += unsnake(grid, [x, y+1])
-        followups += unsnake(grid, [x, y-1])
-        if followups == 0
-          unsnake(grid)
-        end
-        return 1
-      end
-    else
-      start = FirstDeadEnd.new.find(grid)
-      if start
-        unsnake(grid, start)
-      end
-    end
-    return 0
-  end
-end
-
-thing = Generator.new.generate(Random.new, 64, 32, 5, 25, 5, 11) # args need to be odd numbers
-
-puts Drawer.new.draw(thing)
+gen = Generator.new(
+  prng: Random.new,
+  grid_length: 63,
+  grid_height: 31,
+  min_room_length: 5,
+  max_room_length: 25,
+  min_room_height: 5,
+  max_room_height: 11
+) # args need to be odd numbers
+gen.generate
